@@ -1,8 +1,8 @@
 package com.hydrachat.app.bubble
 
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
 import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreItem
@@ -15,7 +15,7 @@ object PersonaIcon {
     private const val FALLBACK_COLOR = 0xFF42A5F5
 
     fun create(persona: Persona, skin: StoreItem): IconCompat {
-        val bitmap = Bitmap.createBitmap(SIZE_PX, SIZE_PX, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(SIZE_PX, SIZE_PX)
         val canvas = Canvas(bitmap)
         canvas.drawColor((skin.ringColors.firstOrNull() ?: FALLBACK_COLOR).toInt())
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
