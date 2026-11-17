@@ -106,10 +106,17 @@ Google Play requires new apps and updates to target Android 16 (API 36) since 20
 Compose Multiplatform need a current Kotlin.
 - Gradle 9.9.1 (AGP 9.5 needs ≥ 9.6.0), AGP 9.5.1, Kotlin 2.4.21, KSP 2.3.14, JDK 17.
 - AGP 9 built-in Kotlin: remove `org.jetbrains.kotlin.android`, replace `kotlinOptions` (JVM target
-  follows `compileOptions`).
-- `compileSdk` / `targetSdk` 36; upgrade AndroidX, Compose BoM, Room, WorkManager, Firebase BoM.
+  follows `compileOptions`). AGP 9.5 pulls KGP 2.2.10 / KSP 2.2.10-2.0.2 by default; the versions
+  declared in the root `build.gradle.kts` win conflict resolution (check with `./gradlew buildEnvironment`).
+- `targetSdk` 36, `compileSdk` 37 (androidx.core 1.19 requires it); upgrade AndroidX, Compose BoM,
+  Room, WorkManager, Firebase BoM 35.2.0.
 - Review Android 16 behavior changes against the app (edge-to-edge, predictive back, large-screen
-  orientation rules).
+  orientation rules, 16 KB native library alignment).
+
+Outcome: done. Android 16 review found no required code change; the only deprecation surfaced by
+compileSdk 37 (`AppOpsManager.unsafeCheckOpNoThrow`) was replaced with `checkOpNoThrow`. Bundled
+native libraries (`libandroidx.graphics.path.so`, `libdatastore_shared_counter.so`) are 16 KB aligned.
+Still to check on an Android 16 device: `BubbleActivity` under enforced edge-to-edge.
 
 #### R2 — KMP restructure (Android only)
 - Create `shared`; move domain, data, AI client, UI and ViewModels into it (see §3.2).
@@ -181,7 +188,7 @@ in the Android app module, enable App Check, `firebase functions:secrets:set GEM
 | Phase | Status | Verified on device |
 |---|---|---|
 | 1–4 Foundation | Done | Phase 3 on API 35 emulator; phases 2 and 4 not yet (see §5) |
-| R1 Android toolchain | In progress | — |
+| R1 Android toolchain | Done | API 35 emulator: app starts, existing Room data opens, system bubble posts; no API 36 image tested yet |
 | R2 KMP restructure | Not started | — |
 | R3 CI | Not started | — |
 | R4 iOS app | Not started | — |
