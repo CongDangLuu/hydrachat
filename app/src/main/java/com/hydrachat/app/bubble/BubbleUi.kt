@@ -50,6 +50,8 @@ import com.hydrachat.app.ui.PersonaAvatar
 
 const val BUBBLE_BOX_DP = 68
 const val DISMISS_TARGET_DP = 64
+/** How long the praise stays visible before the overlay or system bubble closes itself. */
+const val AUTO_COLLAPSE_MS = 1_500L
 private const val AVATAR_DP = 60
 private const val DISMISS_ACTIVE_SCALE = 1.25f
 

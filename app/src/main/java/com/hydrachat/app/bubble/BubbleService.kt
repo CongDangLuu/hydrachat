@@ -406,16 +406,12 @@ class BubbleService : Service() {
     }
 
     companion object {
-        private const val EXTRA_CHAT_TEXT = "chat_text"
-        private const val EXTRA_QUICK_REPLY = "quick_reply"
-        private const val EXTRA_MINI_QUEST = "mini_quest"
         private const val INITIAL_Y_RATIO = 0.3f
         private const val PANEL_HEIGHT_RATIO = 0.42f
         private const val DISMISS_BOTTOM_MARGIN_DP = 48
         private const val DISMISS_RADIUS_DP = 90
         private const val SNAP_DURATION_MS = 250L
         private const val PREVIEW_DURATION_MS = 5_000L
-        private const val AUTO_COLLAPSE_MS = 1_500L
         private const val IDLE_TIMEOUT_MS = 3 * 60 * 1000L
         private const val TAG = "BubbleService"
 
@@ -427,10 +423,7 @@ class BubbleService : Service() {
 
         /** Returns false when Android refuses a foreground service start, e.g. from the background on 12+. */
         private fun start(context: Context, nudge: NudgeContent): Boolean {
-            val intent = Intent(context, BubbleService::class.java)
-                .putExtra(EXTRA_CHAT_TEXT, nudge.chatText)
-                .putExtra(EXTRA_QUICK_REPLY, nudge.quickReplyText)
-                .putExtra(EXTRA_MINI_QUEST, nudge.miniQuest)
+            val intent = Intent(context, BubbleService::class.java).putNudge(nudge)
             return try {
                 ContextCompat.startForegroundService(context, intent)
                 true
@@ -442,17 +435,7 @@ class BubbleService : Service() {
 
         private fun showFallback(context: Context, nudge: NudgeContent) {
             val settings = (context.applicationContext as HydraApp).container.settings.current
-            ReminderNotifier.showReminder(context, settings.persona, nudge, settings.cupMl)
-        }
-
-        private fun Intent.toNudge(): NudgeContent? {
-            val chatText = getStringExtra(EXTRA_CHAT_TEXT)
-            if (chatText.isNullOrBlank()) return null
-            return NudgeContent(
-                chatText = chatText,
-                quickReplyText = getStringExtra(EXTRA_QUICK_REPLY).orEmpty(),
-                miniQuest = getStringExtra(EXTRA_MINI_QUEST).orEmpty(),
-            )
+            ReminderNotifier.showReminder(context, settings, nudge)
         }
     }
 }

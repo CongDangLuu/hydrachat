@@ -2,7 +2,9 @@ package com.hydrachat.app.ui
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -253,22 +255,41 @@ private fun PermissionsCard(viewModel: MainViewModel) {
     var canOverlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var canNotify by remember { mutableStateOf(ReminderNotifier.canPost(context)) }
     var canExact by remember { mutableStateOf(viewModel.canScheduleExact()) }
+    var canBubble by remember { mutableStateOf(ReminderNotifier.canBubble(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         canOverlay = Settings.canDrawOverlays(context)
         canNotify = ReminderNotifier.canPost(context)
         canExact = viewModel.canScheduleExact()
+        canBubble = ReminderNotifier.canBubble(context)
     }
     SettingsCard("Quyền") {
         PermissionRow("🫧 Nổi bong bóng", canOverlay) { context.openSettings(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) }
         PermissionRow("🔔 Thông báo", canNotify) { context.openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS) }
         PermissionRow("⏰ Nhắc đúng giờ", canExact) { context.openSettings(EXACT_ALARM_SETTINGS_ACTION) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            PermissionRow("💬 Bong bóng hệ thống", canBubble) { context.openBubbleSettings() }
+        }
         if (!canOverlay) {
             Text(
-                "Chưa có quyền nổi bong bóng: mình sẽ nhắc bằng thông báo có nút trả lời nhanh.",
+                "Chưa có quyền nổi bong bóng: mình sẽ nhắc bằng bong bóng hệ thống (nếu được bật) " +
+                    "hoặc thông báo có nút trả lời nhanh.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+// This screen takes the package as an extra, not as a "package:" URI like openSettings uses.
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun Context.openBubbleSettings() {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_BUBBLE_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    if (intent.resolveActivity(packageManager) != null) {
+        startActivity(intent)
+    } else {
+        openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
     }
 }
 
