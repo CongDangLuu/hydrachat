@@ -12,6 +12,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -73,30 +74,40 @@ class BubbleService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val nudge = intent?.toNudge()
+        val isForeground = enterForeground()
+        if (nudge == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (!isForeground || !Settings.canDrawOverlays(this)) {
+            showFallback(this, nudge)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        showReminder(nudge)
+        return START_NOT_STICKY
+    }
+
+    private fun enterForeground(): Boolean {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         } else {
             0
         }
-        ServiceCompat.startForeground(
-            this,
-            ReminderNotifier.SERVICE_NOTIFICATION_ID,
-            ReminderNotifier.serviceNotification(this),
-            type,
-        )
-        val chatText = intent?.getStringExtra(EXTRA_CHAT_TEXT)
-        if (chatText.isNullOrBlank() || !Settings.canDrawOverlays(this)) {
-            stopSelf()
-            return START_NOT_STICKY
+        return try {
+            ServiceCompat.startForeground(
+                this,
+                ReminderNotifier.SERVICE_NOTIFICATION_ID,
+                ReminderNotifier.serviceNotification(this),
+                type,
+            )
+            true
+        } catch (e: IllegalStateException) {
+            // ForegroundServiceStartNotAllowedException (API 31+) extends IllegalStateException.
+            Log.w(TAG, "startForeground was refused: ${e.javaClass.simpleName}")
+            false
         }
-        showReminder(
-            NudgeContent(
-                chatText = chatText,
-                quickReplyText = intent.getStringExtra(EXTRA_QUICK_REPLY).orEmpty(),
-                miniQuest = intent.getStringExtra(EXTRA_MINI_QUEST).orEmpty(),
-            ),
-        )
-        return START_NOT_STICKY
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -406,13 +417,42 @@ class BubbleService : Service() {
         private const val PREVIEW_DURATION_MS = 5_000L
         private const val AUTO_COLLAPSE_MS = 1_500L
         private const val IDLE_TIMEOUT_MS = 3 * 60 * 1000L
+        private const val TAG = "BubbleService"
 
-        fun start(context: Context, nudge: NudgeContent) {
+        /** Shows the overlay bubble, or the fallback notification when the overlay cannot be used. */
+        fun show(context: Context, nudge: NudgeContent) {
+            if (Settings.canDrawOverlays(context) && start(context, nudge)) return
+            showFallback(context, nudge)
+        }
+
+        /** Returns false when Android refuses a foreground service start, e.g. from the background on 12+. */
+        private fun start(context: Context, nudge: NudgeContent): Boolean {
             val intent = Intent(context, BubbleService::class.java)
                 .putExtra(EXTRA_CHAT_TEXT, nudge.chatText)
                 .putExtra(EXTRA_QUICK_REPLY, nudge.quickReplyText)
                 .putExtra(EXTRA_MINI_QUEST, nudge.miniQuest)
-            ContextCompat.startForegroundService(context, intent)
+            return try {
+                ContextCompat.startForegroundService(context, intent)
+                true
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Bubble service start was refused: ${e.javaClass.simpleName}")
+                false
+            }
+        }
+
+        private fun showFallback(context: Context, nudge: NudgeContent) {
+            val settings = (context.applicationContext as HydraApp).container.settings.current
+            ReminderNotifier.showReminder(context, settings.persona, nudge, settings.cupMl)
+        }
+
+        private fun Intent.toNudge(): NudgeContent? {
+            val chatText = getStringExtra(EXTRA_CHAT_TEXT)
+            if (chatText.isNullOrBlank()) return null
+            return NudgeContent(
+                chatText = chatText,
+                quickReplyText = getStringExtra(EXTRA_QUICK_REPLY).orEmpty(),
+                miniQuest = getStringExtra(EXTRA_MINI_QUEST).orEmpty(),
+            )
         }
     }
 }

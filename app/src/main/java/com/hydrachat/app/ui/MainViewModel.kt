@@ -1,7 +1,6 @@
 package com.hydrachat.app.ui
 
 import android.app.Application
-import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrachat.app.HydraApp
@@ -14,7 +13,6 @@ import com.hydrachat.app.domain.DailyQuest
 import com.hydrachat.app.domain.HydrationMath
 import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreItem
-import com.hydrachat.app.reminder.ReminderNotifier
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,12 +100,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val nudge = welcome ?: repository.nextNudge()
             if (welcome == null) repository.recordNudgeShown(nudge)
-            if (Settings.canDrawOverlays(context)) {
-                BubbleService.start(context, nudge)
-            } else {
-                val current = settings.value
-                ReminderNotifier.showReminder(context, current.persona, nudge, current.cupMl)
-            }
+            BubbleService.show(context, nudge)
         }
     }
 
