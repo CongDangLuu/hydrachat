@@ -5,6 +5,7 @@ import com.hydrachat.app.ai.GeminiClient
 import com.hydrachat.app.ai.NudgeContent
 import com.hydrachat.app.ai.NudgeRequest
 import com.hydrachat.app.ai.OfflineLines
+import com.hydrachat.app.ai.ProxyClient
 import com.hydrachat.app.domain.DailyQuest
 import com.hydrachat.app.domain.HydrationMath
 import com.hydrachat.app.domain.ItemKind
@@ -25,6 +26,7 @@ class HydraRepository(
     private val settings: SettingsStore,
     private val offline: OfflineLines,
     private val gemini: GeminiClient,
+    private val proxy: ProxyClient,
 ) {
     suspend fun todayTotalMl(): Int = db.waterDao().sumSince(todayStart())
 
@@ -38,17 +40,26 @@ class HydraRepository(
         return NudgeContent(cached.chatText, cached.quickReplyText, cached.miniQuest)
     }
 
+    /** A personal key (direct Gemini call) or the Firebase proxy; without either, only offline lines are used. */
+    fun isAiAvailable(): Boolean = settings.current.apiKey.isNotBlank() || proxy.isAvailable
+
     /** Returns true when a Gemini line was fetched and cached for the reminder at `forTimeMillis`. */
     suspend fun prefetchNudge(forTimeMillis: Long): Boolean {
         val current = settings.current
-        if (current.apiKey.isBlank()) return false
+        if (!isAiAvailable()) return false
         val request = NudgeRequest(
+            personaId = current.persona.id,
             personaRole = current.persona.promptRole,
             timeContext = HydrationMath.timeContext(forTimeMillis, ZoneId.systemDefault()),
             currentMl = todayTotalMl(),
             targetMl = current.targetMl,
         )
-        val nudge = gemini.generateNudge(current.apiKey, request).getOrElse { error ->
+        val result = if (current.apiKey.isNotBlank()) {
+            gemini.generateNudge(current.apiKey, request)
+        } else {
+            proxy.generateNudge(request)
+        }
+        val nudge = result.getOrElse { error ->
             Log.w(TAG, "Gemini prefetch failed, the offline library will be used: ${error.javaClass.simpleName}")
             return false
         }

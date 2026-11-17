@@ -171,10 +171,13 @@ private fun GeminiCard(viewModel: MainViewModel, settings: UserSettings) {
     var draftKey by rememberSaveable(settings.apiKey) { mutableStateOf(settings.apiKey) }
     SettingsCard("Gemini AI (lời thoại động)") {
         Text(
-            if (settings.apiKey.isBlank()) {
-                "Chưa có API key: đang dùng kho câu thoại offline. Lấy key miễn phí ở Google AI Studio."
-            } else {
-                "Đã bật: câu thoại được tải trước 5 phút mỗi lần nhắc, lỗi mạng sẽ dùng kho offline."
+            when {
+                settings.apiKey.isNotBlank() ->
+                    "Đang dùng key riêng của bạn: câu thoại được tải trước 5 phút mỗi lần nhắc, lỗi mạng sẽ dùng kho offline."
+                viewModel.isProxyAvailable() ->
+                    "Đã bật qua máy chủ HydraChat, không cần key. Nhập key riêng nếu muốn dùng hạn mức của bạn."
+                else ->
+                    "Chưa có API key: đang dùng kho câu thoại offline. Lấy key miễn phí ở Google AI Studio."
             },
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

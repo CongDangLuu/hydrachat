@@ -19,6 +19,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 data class NudgeRequest(
+    val personaId: String,
     val personaRole: String,
     val timeContext: String,
     val currentMl: Int,

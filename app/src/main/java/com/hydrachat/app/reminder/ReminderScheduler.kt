@@ -16,7 +16,11 @@ import com.hydrachat.app.domain.HydrationMath
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
-class ReminderScheduler(private val context: Context, private val settings: SettingsStore) {
+class ReminderScheduler(
+    private val context: Context,
+    private val settings: SettingsStore,
+    private val isAiAvailable: () -> Boolean,
+) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     fun canScheduleExact(): Boolean =
@@ -58,7 +62,7 @@ class ReminderScheduler(private val context: Context, private val settings: Sett
     }
 
     private fun enqueuePrefetch(triggerAtMillis: Long) {
-        if (settings.current.apiKey.isBlank()) return
+        if (!isAiAvailable()) return
         val delayMillis = (triggerAtMillis - PREFETCH_LEAD_MS - System.currentTimeMillis()).coerceAtLeast(0)
         val request = OneTimeWorkRequestBuilder<PrefetchWorker>()
             .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)

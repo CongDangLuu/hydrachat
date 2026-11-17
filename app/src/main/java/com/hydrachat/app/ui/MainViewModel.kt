@@ -62,6 +62,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun canScheduleExact(): Boolean = container.scheduler.canScheduleExact()
 
+    fun isProxyAvailable(): Boolean = container.proxy.isAvailable
+
     fun finishOnboarding(result: OnboardingResult) {
         container.settings.update {
             it.copy(
