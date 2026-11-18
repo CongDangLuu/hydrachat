@@ -53,8 +53,9 @@ private const val WEIGHT_STEP_KG = 5
 private const val MIN_WEIGHT_KG = 35
 private const val MAX_WEIGHT_KG = 150
 private const val TARGET_STEP_ML = 100
-private const val MIN_TARGET_ML = 800
-private const val MAX_TARGET_ML = 5000
+// Manual override is wider than the computed range, but still capped so the app never chases an unsafe goal.
+private const val MIN_TARGET_ML = 1000
+private const val MAX_TARGET_ML = 4000
 private const val TIME_STEP_MINUTES = 30
 private const val MIN_WORK_SPAN_MINUTES = 60
 private const val LAST_MINUTE_OF_DAY = 23 * 60 + 30
@@ -84,7 +85,14 @@ fun SettingsSection(viewModel: MainViewModel, settings: UserSettings) {
         SettingsCard("Mục tiêu nước") {
             StepperRow("Cân nặng", "${settings.weightKg} kg") { direction ->
                 val weight = (settings.weightKg + direction * WEIGHT_STEP_KG).coerceIn(MIN_WEIGHT_KG, MAX_WEIGHT_KG)
-                viewModel.updateSchedule { it.copy(weightKg = weight, targetMl = HydrationMath.dailyTargetMl(weight)) }
+                viewModel.updateSchedule {
+                    it.copy(weightKg = weight, targetMl = HydrationMath.dailyTargetMl(weight, it.isAge55Plus))
+                }
+            }
+            SwitchRow("Từ 55 tuổi trở lên", settings.isAge55Plus) { isOn ->
+                viewModel.updateSchedule {
+                    it.copy(isAge55Plus = isOn, targetMl = HydrationMath.dailyTargetMl(it.weightKg, isOn))
+                }
             }
             StepperRow("Mục tiêu/ngày", "${settings.targetMl} ml") { direction ->
                 val target = (settings.targetMl + direction * TARGET_STEP_ML).coerceIn(MIN_TARGET_ML, MAX_TARGET_ML)

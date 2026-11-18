@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 data class OnboardingResult(
     val persona: Persona,
     val weightKg: Int,
+    val isAge55Plus: Boolean,
     val workStartMinute: Int,
     val workEndMinute: Int,
     val cupMl: Int,
@@ -70,7 +71,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 isOnboarded = true,
                 personaId = result.persona.id,
                 weightKg = result.weightKg,
-                targetMl = HydrationMath.dailyTargetMl(result.weightKg),
+                isAge55Plus = result.isAge55Plus,
+                targetMl = HydrationMath.dailyTargetMl(result.weightKg, result.isAge55Plus),
                 cupMl = result.cupMl,
                 workStartMinute = result.workStartMinute,
                 workEndMinute = result.workEndMinute,

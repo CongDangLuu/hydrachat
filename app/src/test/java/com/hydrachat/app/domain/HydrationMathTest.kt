@@ -17,10 +17,18 @@ class HydrationMathTest {
         LocalDateTime.of(2026, 11, day, hour, minute).atZone(zone).toInstant().toEpochMilli()
 
     @Test
-    fun targetFollowsWeight() {
-        assertEquals(2000, HydrationMath.dailyTargetMl(60))
-        assertEquals(1200, HydrationMath.dailyTargetMl(30))
-        assertEquals(4000, HydrationMath.dailyTargetMl(150))
+    fun targetFollowsWeightAndAge() {
+        assertEquals(2100, HydrationMath.dailyTargetMl(60, isAge55Plus = false))
+        assertEquals(1800, HydrationMath.dailyTargetMl(60, isAge55Plus = true))
+        assertEquals(2300, HydrationMath.dailyTargetMl(65, isAge55Plus = false))
+    }
+
+    @Test
+    fun targetIsClampedAtBothEnds() {
+        assertEquals(1500, HydrationMath.dailyTargetMl(40, isAge55Plus = false))
+        assertEquals(1500, HydrationMath.dailyTargetMl(45, isAge55Plus = true))
+        assertEquals(3000, HydrationMath.dailyTargetMl(110, isAge55Plus = false))
+        assertEquals(3000, HydrationMath.dailyTargetMl(150, isAge55Plus = true))
     }
 
     @Test
