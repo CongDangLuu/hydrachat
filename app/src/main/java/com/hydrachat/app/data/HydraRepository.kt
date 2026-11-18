@@ -37,7 +37,8 @@ class HydraRepository(
         val cached = db.nudgeDao().latestFor(current.personaId, minCreatedAt)
             ?: return offline.pick(current.persona, current.activePacks)
         db.nudgeDao().consume(cached.id, minCreatedAt)
-        return NudgeContent(cached.chatText, cached.quickReplyText, cached.miniQuest)
+        // Only Gemini lines are ever cached; offline lines are picked on the spot.
+        return NudgeContent(cached.chatText, cached.quickReplyText, cached.miniQuest, isFromAi = true)
     }
 
     /** A personal key (direct Gemini call) or the Firebase proxy; without either, only offline lines are used. */
@@ -78,7 +79,15 @@ class HydraRepository(
     suspend fun recordNudgeShown(nudge: NudgeContent) {
         val now = System.currentTimeMillis()
         db.chatDao().deleteOlderThan(now - CHAT_RETENTION_MS)
-        db.chatDao().insert(ChatMessage(timestamp = now, isFromUser = false, text = nudge.chatText, quest = nudge.miniQuest))
+        db.chatDao().insert(
+            ChatMessage(
+                timestamp = now,
+                isFromUser = false,
+                text = nudge.chatText,
+                quest = nudge.miniQuest,
+                isFromAi = nudge.isFromAi,
+            ),
+        )
     }
 
     suspend fun recordBotMessage(text: String) {

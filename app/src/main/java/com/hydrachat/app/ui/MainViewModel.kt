@@ -100,10 +100,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun showReminderNow(welcome: NudgeContent? = null) {
         val context = getApplication<Application>()
         viewModelScope.launch {
-            val nudge = welcome ?: repository.nextNudge()
+            val nudge = welcome ?: freshNudge()
             if (welcome == null) repository.recordNudgeShown(nudge)
             BubbleService.show(context, nudge)
         }
+    }
+
+    /** A manual test has no prefetch 5 minutes ahead, so ask Gemini now and fall back to offline lines. */
+    private suspend fun freshNudge(): NudgeContent {
+        if (repository.isAiAvailable()) repository.prefetchNudge(System.currentTimeMillis())
+        return repository.nextNudge()
     }
 
     fun buy(item: StoreItem): Boolean = repository.buy(item)

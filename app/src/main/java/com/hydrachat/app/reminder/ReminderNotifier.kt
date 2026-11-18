@@ -14,6 +14,7 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.hydrachat.app.R
+import com.hydrachat.app.ai.AI_SOURCE_LABEL
 import com.hydrachat.app.ai.NudgeContent
 import com.hydrachat.app.bubble.BubbleActivity
 import com.hydrachat.app.bubble.PersonaIcon
@@ -74,7 +75,11 @@ object ReminderNotifier {
         val personaPerson = Person.Builder().setName(persona.displayName).setIcon(icon).setKey(persona.id).build()
         val shortcutId = publishConversationShortcut(context, personaPerson, icon)
         // One message, not two: the bubble preview shows only the latest message, which must be the nudge.
-        val messageText = if (nudge.miniQuest.isBlank()) nudge.chatText else "${nudge.chatText}\n🎯 ${nudge.miniQuest}"
+        val messageText = listOfNotNull(
+            nudge.chatText,
+            "🎯 ${nudge.miniQuest}".takeIf { nudge.miniQuest.isNotBlank() },
+            AI_SOURCE_LABEL.takeIf { nudge.isFromAi },
+        ).joinToString("\n")
         val style = NotificationCompat.MessagingStyle(Person.Builder().setName(USER_NAME).build())
             .addMessage(messageText, System.currentTimeMillis(), personaPerson)
 

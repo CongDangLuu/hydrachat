@@ -5,11 +5,15 @@ import com.hydrachat.app.domain.Persona
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+/** Shown next to a reminder line so the user can tell Gemini lines from the offline library. */
+const val AI_SOURCE_LABEL = "✨ Tạo bởi Gemini"
+
 @Serializable
 data class NudgeContent(
     val chatText: String,
     val quickReplyText: String,
     val miniQuest: String,
+    val isFromAi: Boolean = false,
 )
 
 @Serializable

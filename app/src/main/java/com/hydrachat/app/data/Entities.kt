@@ -1,5 +1,6 @@
 package com.hydrachat.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -17,6 +18,7 @@ data class ChatMessage(
     val isFromUser: Boolean,
     val text: String,
     val quest: String? = null,
+    @ColumnInfo(defaultValue = "0") val isFromAi: Boolean = false,
 )
 
 /** A Gemini reply fetched ahead of the reminder so the bubble can show instantly. */

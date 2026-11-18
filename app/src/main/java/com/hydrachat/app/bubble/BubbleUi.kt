@@ -147,7 +147,7 @@ fun ChatPanel(
         ) {
             PanelHeader(state, onClose)
             if (state.phase == PanelPhase.Asking) {
-                ChatBubble(text = state.nudge.chatText, isFromUser = false)
+                ChatBubble(text = state.nudge.chatText, isFromUser = false, isFromAi = state.nudge.isFromAi)
                 QuestRow(state, onQuestDone)
                 QuickReplies(state, onDrink, onSnooze)
             } else {
