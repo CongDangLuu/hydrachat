@@ -3,6 +3,7 @@ package com.hydrachat.app.ai
 import android.content.Context
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseException
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 
@@ -22,14 +23,21 @@ class ProxyClient(private val context: Context) {
             "targetMl" to request.targetMl,
         )
         return try {
-            val result = FirebaseFunctions.getInstance(REGION).getHttpsCallable(FUNCTION_NAME).call(payload).await()
+            ensureSignedIn()
+            val result =FirebaseFunctions.getInstance(REGION).getHttpsCallable(FUNCTION_NAME).call(payload).await()
             Result.success(parse(result.getData()))
         } catch (e: FirebaseException) {
-            // Covers network errors, App Check rejection and server-side failures.
+            // Covers network errors, sign-in failure, App Check rejection, the daily quota and server failures.
             Result.failure(e)
         } catch (e: IllegalArgumentException) {
             Result.failure(e)
         }
+    }
+
+    /** Silent anonymous sign-in: the proxy counts its daily quota per uid, and the user never sees a login. */
+    private suspend fun ensureSignedIn() {
+        val auth = FirebaseAuth.getInstance()
+        if (auth.currentUser == null) auth.signInAnonymously().await()
     }
 
     private fun parse(data: Any?): NudgeContent {

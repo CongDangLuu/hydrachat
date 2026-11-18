@@ -3,6 +3,7 @@ import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { InvalidInputError, parseNudgeInput, requestNudge } from "./nudge";
+import { consumeNudgeQuota } from "./quota";
 
 initializeApp();
 
@@ -19,12 +20,19 @@ export const generateNudge = onCall(
     timeoutSeconds: 30,
   },
   async (request) => {
+    // The app signs in anonymously, so every install has a uid to count the daily quota against.
+    const uid = request.auth?.uid;
+    if (uid === undefined) throw new HttpsError("unauthenticated", "Sign-in is required");
     let input;
     try {
       input = parseNudgeInput(request.data);
     } catch (error) {
       if (error instanceof InvalidInputError) throw new HttpsError("invalid-argument", error.message);
       throw error;
+    }
+    // Invalid input is rejected above, so it never costs the user a nudge.
+    if (!(await consumeNudgeQuota(uid))) {
+      throw new HttpsError("resource-exhausted", "Daily nudge limit reached");
     }
     try {
       return await requestNudge(geminiApiKey.value(), input);

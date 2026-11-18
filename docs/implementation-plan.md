@@ -180,8 +180,10 @@ Still to check on an Android 16 device: `BubbleActivity` under enforced edge-to-
 | GitHub Actions macOS minutes | Private repos bill macOS at 10× Linux minutes | R3 |
 
 Firebase steps: register `com.hydrachat.app` (and the iOS bundle ID in R4), put `google-services.json`
-in the Android app module, enable App Check, `firebase functions:secrets:set GEMINI_API_KEY`,
-`firebase use --add`, `firebase deploy --only functions`.
+in the Android app module, enable App Check, enable **Anonymous** sign-in (Authentication) and create
+the Firestore database (the proxy keeps a per-user daily quota of 30 nudges in `nudgeQuota/{uid}`),
+`firebase functions:secrets:set GEMINI_API_KEY`, `firebase use --add`,
+`firebase deploy --only functions,firestore:rules`.
 
 ## 7. Progress
 
