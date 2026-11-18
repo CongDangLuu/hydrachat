@@ -30,7 +30,7 @@ const MIN_TARGET_ML = 100;
 const MAX_TARGET_ML = 10_000;
 const MAX_FIELD_LENGTH = 300;
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.5-flash-lite";
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const TIMEOUT_MS = 15_000;
 const TEMPERATURE = 0.9;
@@ -70,7 +70,6 @@ export function buildRequestBody(input: NudgeInput): object {
     generationConfig: {
       temperature: TEMPERATURE,
       responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 0 },
       responseSchema: {
         type: "OBJECT",
         properties: {
