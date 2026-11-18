@@ -19,7 +19,8 @@ data class UserSettings(
     val personaId: String = Persona.GenZ.id,
     val weightKg: Int = 60,
     val isAge55Plus: Boolean = false,
-    val targetMl: Int = 2100,
+    // Values equal to the default are not stored, so changing this would silently move existing users' targets.
+    val targetMl: Int = 2000,
     val cupMl: Int = 250,
     val workStartMinute: Int = 8 * 60 + 30,
     val workEndMinute: Int = 17 * 60 + 30,
