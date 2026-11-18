@@ -169,6 +169,8 @@ private fun SwitchRow(label: String, isChecked: Boolean, onChange: (Boolean) -> 
 @Composable
 private fun GeminiCard(viewModel: MainViewModel, settings: UserSettings) {
     var draftKey by rememberSaveable(settings.apiKey) { mutableStateOf(settings.apiKey) }
+    var testResult by rememberSaveable { mutableStateOf("") }
+    var isTesting by remember { mutableStateOf(false) }
     SettingsCard("Gemini AI (lời thoại động)") {
         Text(
             when {
@@ -191,10 +193,26 @@ private fun GeminiCard(viewModel: MainViewModel, settings: UserSettings) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedButton(
-            onClick = { viewModel.updateSchedule { it.copy(apiKey = draftKey) } },
-            enabled = draftKey != settings.apiKey,
-        ) { Text("Lưu key") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { viewModel.updateSchedule { it.copy(apiKey = draftKey) } },
+                enabled = draftKey != settings.apiKey,
+            ) { Text("Lưu key") }
+            OutlinedButton(
+                onClick = {
+                    isTesting = true
+                    testResult = "Đang gọi Gemini..."
+                    viewModel.testGemini {
+                        testResult = it
+                        isTesting = false
+                    }
+                },
+                enabled = (settings.apiKey.isNotBlank() || viewModel.isProxyAvailable()) && !isTesting,
+            ) { Text("Thử Gemini") }
+        }
+        if (testResult.isNotBlank()) {
+            Text(testResult, fontSize = 13.sp)
+        }
     }
 }
 

@@ -112,6 +112,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return repository.nextNudge()
     }
 
+    /** Calls Gemini right now so the user can check the key; the line is used by the next bubble. */
+    fun testGemini(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.prefetchNudge(System.currentTimeMillis())
+            onResult(
+                result.fold(
+                    onSuccess = { "✅ ${it.chatText}\n🎯 ${it.miniQuest}\n🔘 ${it.quickReplyText}" },
+                    onFailure = { "❌ ${it.message ?: it.javaClass.simpleName}" },
+                ),
+            )
+        }
+    }
+
     fun buy(item: StoreItem): Boolean = repository.buy(item)
 
     fun equipSkin(skinId: String) = repository.equipSkin(skinId)

@@ -44,10 +44,10 @@ class HydraRepository(
     /** A personal key (direct Gemini call) or the Firebase proxy; without either, only offline lines are used. */
     fun isAiAvailable(): Boolean = settings.current.apiKey.isNotBlank() || proxy.isAvailable
 
-    /** Returns true when a Gemini line was fetched and cached for the reminder at `forTimeMillis`. */
-    suspend fun prefetchNudge(forTimeMillis: Long): Boolean {
+    /** Fetches a Gemini line for the reminder at `forTimeMillis` and caches it for the next bubble. */
+    suspend fun prefetchNudge(forTimeMillis: Long): Result<NudgeContent> {
         val current = settings.current
-        if (!isAiAvailable()) return false
+        if (!isAiAvailable()) return Result.failure(IllegalStateException("Chưa có API key"))
         val request = NudgeRequest(
             personaId = current.persona.id,
             personaRole = current.persona.promptRole,
@@ -62,7 +62,7 @@ class HydraRepository(
         }
         val nudge = result.getOrElse { error ->
             Log.w(TAG, "Gemini prefetch failed, the offline library will be used: ${error.javaClass.simpleName}")
-            return false
+            return Result.failure(error)
         }
         db.nudgeDao().insert(
             CachedNudge(
@@ -73,7 +73,7 @@ class HydraRepository(
                 createdAt = System.currentTimeMillis(),
             ),
         )
-        return true
+        return Result.success(nudge.copy(isFromAi = true))
     }
 
     suspend fun recordNudgeShown(nudge: NudgeContent) {
