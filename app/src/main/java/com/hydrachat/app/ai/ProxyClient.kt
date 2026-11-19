@@ -45,6 +45,7 @@ class ProxyClient(private val context: Context) {
         val nudge = NudgeContent(
             chatText = map["chatText"] as? String ?: "",
             quickReplyText = map["quickReplyText"] as? String ?: "",
+            praiseText = map["praiseText"] as? String ?: "",
         )
         require(nudge.chatText.isNotBlank()) { "Proxy returned an empty chat text" }
         return nudge

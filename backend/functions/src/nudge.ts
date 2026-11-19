@@ -10,6 +10,7 @@ export interface NudgeInput {
 export interface NudgeContent {
   chatText: string;
   quickReplyText: string;
+  praiseText: string;
 }
 
 export class InvalidInputError extends Error {}
@@ -61,7 +62,7 @@ export function buildRequestBody(input: NudgeInput): object {
   const userPrompt =
     `Vai diễn: ${PERSONA_ROLES[input.personaId]} | Thời điểm: ${input.timeContext} | ` +
     `Tiến độ: ${input.currentMl} / ${input.targetMl} ml. ` +
-    "Hãy nhắn 1 tin nhắc uống nước.";
+    "Hãy nhắn 1 tin nhắc uống nước và 1 câu khen khi người dùng đã uống.";
   const stringField = (description: string) => ({ type: "STRING", description });
   return {
     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
@@ -74,8 +75,9 @@ export function buildRequestBody(input: NudgeInput): object {
         properties: {
           chatText: stringField("Câu nhắn nhắc uống nước ngắn gọn, đúng tính cách, có emoji"),
           quickReplyText: stringField("Nội dung nút bấm xác nhận đã uống, tối đa 4 từ"),
+          praiseText: stringField("Câu khen ngắn đúng tính cách khi người dùng báo đã uống, có emoji"),
         },
-        required: ["chatText", "quickReplyText"],
+        required: ["chatText", "quickReplyText", "praiseText"],
       },
     },
   };
@@ -93,6 +95,7 @@ export function parseGeminiResponse(body: unknown): NudgeContent {
   const nudge = {
     chatText: cleanField(parsed.chatText),
     quickReplyText: cleanField(parsed.quickReplyText),
+    praiseText: cleanField(parsed.praiseText),
   };
   if (nudge.chatText === "") throw new Error("Gemini returned an empty chat text");
   return nudge;

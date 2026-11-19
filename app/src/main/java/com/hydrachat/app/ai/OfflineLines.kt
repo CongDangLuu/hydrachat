@@ -12,6 +12,8 @@ const val AI_SOURCE_LABEL = "✨ Tạo bởi Gemini"
 data class NudgeContent(
     val chatText: String,
     val quickReplyText: String,
+    /** Gemini's reply for when the user confirms the drink; offline lines leave it empty. */
+    val praiseText: String = "",
     val isFromAi: Boolean = false,
 )
 

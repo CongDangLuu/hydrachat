@@ -67,6 +67,7 @@ class BubbleUiState {
     var cupMl by mutableIntStateOf(0)
     var phase by mutableStateOf(PanelPhase.Asking)
     var answerText by mutableStateOf("")
+    var isAnswerFromAi by mutableStateOf(false)
     var hasUnread by mutableStateOf(true)
     var isOverDismiss by mutableStateOf(false)
 }
@@ -148,7 +149,7 @@ fun ChatPanel(
                 ChatBubble(text = state.nudge.chatText, isFromUser = false, isFromAi = state.nudge.isFromAi)
                 QuickReplies(state, onDrink, onSnooze)
             } else {
-                ChatBubble(text = state.answerText, isFromUser = false)
+                ChatBubble(text = state.answerText, isFromUser = false, isFromAi = state.isAnswerFromAi)
                 Text("👏💧", fontSize = 44.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         }

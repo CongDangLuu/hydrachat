@@ -62,7 +62,7 @@ class BubbleActivity : ComponentActivity() {
             // The user may collapse the bubble right away; the drink must still be saved.
             val result = withContext(NonCancellable) { container.repository.logDrink(amountMl) }
             state.totalMl = result.totalMl
-            showAnswerThenClose("${result.praise}\n+${result.pointsEarned} giọt sương 💧")
+            showAnswerThenClose("${result.praise}\n+${result.pointsEarned} giọt sương 💧", result.isPraiseFromAi)
         }
     }
 
@@ -76,8 +76,9 @@ class BubbleActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun showAnswerThenClose(text: String) {
+    private suspend fun showAnswerThenClose(text: String, isFromAi: Boolean = false) {
         state.answerText = text
+        state.isAnswerFromAi = isFromAi
         state.phase = PanelPhase.Answered
         delay(AUTO_COLLAPSE_MS)
         // Cancelling the notification also removes its bubble.

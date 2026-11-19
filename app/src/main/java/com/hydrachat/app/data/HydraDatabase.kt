@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [WaterLog::class, ChatMessage::class, CachedNudge::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class HydraDatabase : RoomDatabase() {
@@ -20,7 +20,7 @@ abstract class HydraDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): HydraDatabase =
             Room.databaseBuilder(context, HydraDatabase::class.java, "hydrachat.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
 
         /** Adds the flag that marks chat lines written by Gemini. */
@@ -47,6 +47,18 @@ abstract class HydraDatabase : RoomDatabase() {
                     "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, personaId TEXT NOT NULL, " +
                         "chatText TEXT NOT NULL, quickReplyText TEXT NOT NULL, createdAt INTEGER NOT NULL",
                     "id, personaId, chatText, quickReplyText, createdAt",
+                )
+            }
+        }
+
+        /** Adds Gemini's praise to prefetched lines; the table is only a cache, so it is recreated empty. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE cached_nudges")
+                db.execSQL(
+                    "CREATE TABLE cached_nudges (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "personaId TEXT NOT NULL, chatText TEXT NOT NULL, quickReplyText TEXT NOT NULL, " +
+                        "praiseText TEXT NOT NULL, createdAt INTEGER NOT NULL)",
                 )
             }
         }

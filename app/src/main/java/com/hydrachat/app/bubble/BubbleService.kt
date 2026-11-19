@@ -271,7 +271,7 @@ class BubbleService : Service() {
         scope.launch {
             val result = container.repository.logDrink(amountMl)
             state.totalMl = result.totalMl
-            showAnswerThenClose("${result.praise}\n+${result.pointsEarned} giọt sương 💧")
+            showAnswerThenClose("${result.praise}\n+${result.pointsEarned} giọt sương 💧", result.isPraiseFromAi)
         }
     }
 
@@ -285,9 +285,10 @@ class BubbleService : Service() {
         }
     }
 
-    private suspend fun showAnswerThenClose(text: String) {
+    private suspend fun showAnswerThenClose(text: String, isFromAi: Boolean = false) {
         timeoutJob?.cancel()
         state.answerText = text
+        state.isAnswerFromAi = isFromAi
         state.phase = PanelPhase.Answered
         delay(AUTO_COLLAPSE_MS)
         dismissAll()

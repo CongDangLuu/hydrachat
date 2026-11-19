@@ -36,6 +36,9 @@ data class UserSettings(
     val activePacks: Set<String> = emptySet(),
     val claimedQuests: Set<String> = emptySet(),
     val nextReminderAt: Long = 0,
+    /** Gemini praise of the last reminder, used once when the user logs the drink it asked for. */
+    val pendingPraise: String = "",
+    val pendingPraiseAt: Long = 0,
 ) {
     val persona: Persona get() = Persona.fromId(personaId)
     val schedule: WorkSchedule get() = WorkSchedule(workStartMinute, workEndMinute, skipWeekends)

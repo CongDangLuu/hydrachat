@@ -27,5 +27,6 @@ data class CachedNudge(
     val personaId: String,
     val chatText: String,
     val quickReplyText: String,
+    val praiseText: String,
     val createdAt: Long,
 )

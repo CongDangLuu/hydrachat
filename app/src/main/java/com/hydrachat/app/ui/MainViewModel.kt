@@ -116,7 +116,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val result = repository.prefetchNudge(System.currentTimeMillis())
             onResult(
                 result.fold(
-                    onSuccess = { "✅ ${it.chatText}\n🔘 ${it.quickReplyText}" },
+                    onSuccess = { "✅ ${it.chatText}\n👏 ${it.praiseText}\n🔘 ${it.quickReplyText}" },
                     onFailure = { "❌ ${it.message ?: it.javaClass.simpleName}" },
                 ),
             )

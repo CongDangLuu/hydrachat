@@ -28,9 +28,9 @@ test("rejects out-of-range or non-integer amounts", () => {
 test("extracts and trims the structured Gemini output", () => {
   const body = {
     candidates: [
-      { content: { parts: [{ text: JSON.stringify({ chatText: " Uống nước! ", quickReplyText: "Ok" }) }] } },
+      { content: { parts: [{ text: JSON.stringify({ chatText: " Uống nước! ", quickReplyText: "Ok", praiseText: " Giỏi! " }) }] } },
     ],
   };
-  assert.deepEqual(parseGeminiResponse(body), { chatText: "Uống nước!", quickReplyText: "Ok" });
+  assert.deepEqual(parseGeminiResponse(body), { chatText: "Uống nước!", quickReplyText: "Ok", praiseText: "Giỏi!" });
   assert.throws(() => parseGeminiResponse({ candidates: [] }));
 });
