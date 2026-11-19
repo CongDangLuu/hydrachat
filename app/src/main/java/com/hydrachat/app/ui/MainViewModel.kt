@@ -94,14 +94,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repository.logDrink(amountMl) }
     }
 
-    /** Shows a reminder right now: the bubble if allowed, otherwise the fallback notification. */
-    fun showReminderNow(welcome: NudgeContent? = null) {
-        val context = getApplication<Application>()
-        viewModelScope.launch {
-            val nudge = welcome ?: freshNudge()
-            if (welcome == null) repository.recordNudgeShown(nudge)
-            BubbleService.show(context, nudge)
-        }
+    /** Onboarding demo of the reminder bubble; regular reminders skip it while the app is open. */
+    fun showWelcomeBubble(nudge: NudgeContent) {
+        BubbleService.show(getApplication(), nudge)
+    }
+
+    /** The in-app test button: posts a reminder line straight into the chat room. */
+    fun remindInChat() {
+        viewModelScope.launch { repository.recordNudgeShown(freshNudge()) }
     }
 
     /** A manual test has no prefetch 5 minutes ahead, so ask Gemini now and fall back to offline lines. */

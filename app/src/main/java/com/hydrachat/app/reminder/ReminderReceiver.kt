@@ -41,7 +41,9 @@ class ReminderReceiver : BroadcastReceiver() {
             container.scheduler.scheduleNext(skipToday = true)
             return
         }
-        val deferReason = ContextDetector.deferReason(context, settings.hiddenApps)
+        // While the app is open its chat room shows the line, so there is no bubble to defer or show.
+        val isAppOpen = container.screenVisibility.isAppOpen
+        val deferReason = if (isAppOpen) null else ContextDetector.deferReason(context, settings.hiddenApps)
         if (deferReason != null) {
             Log.i(TAG, "Reminder deferred: $deferReason")
             container.scheduler.scheduleInMinutes(HydrationMath.DEFER_MINUTES)
@@ -49,7 +51,7 @@ class ReminderReceiver : BroadcastReceiver() {
         }
         val nudge = container.repository.nextNudge()
         container.repository.recordNudgeShown(nudge)
-        BubbleService.show(context, nudge)
+        if (!isAppOpen) BubbleService.show(context, nudge)
         container.scheduler.scheduleNext()
     }
 

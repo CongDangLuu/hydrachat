@@ -413,6 +413,11 @@ class BubbleService : Service() {
             showFallback(context, nudge)
         }
 
+        /** Removes a bubble that is still on screen; a no-op when none is shown. */
+        fun dismiss(context: Context) {
+            context.stopService(Intent(context, BubbleService::class.java))
+        }
+
         /** Returns false when Android refuses a foreground service start, e.g. from the background on 12+. */
         private fun start(context: Context, nudge: NudgeContent): Boolean {
             val intent = Intent(context, BubbleService::class.java).putNudge(nudge)

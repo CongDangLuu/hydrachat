@@ -22,6 +22,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hydrachat.app.HydraApp
+import com.hydrachat.app.bubble.BubbleService
+import com.hydrachat.app.reminder.ReminderNotifier
 
 private data class Tab(val emoji: String, val label: String)
 
@@ -34,6 +37,19 @@ class MainActivity : ComponentActivity() {
         setContent {
             HydraTheme { HydraRoot() }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        (application as HydraApp).container.screenVisibility.onStart()
+        // The chat room already shows every reminder, so a bubble or notification on top of the app is redundant.
+        BubbleService.dismiss(this)
+        ReminderNotifier.cancelReminder(this)
+    }
+
+    override fun onStop() {
+        (application as HydraApp).container.screenVisibility.onStop()
+        super.onStop()
     }
 }
 

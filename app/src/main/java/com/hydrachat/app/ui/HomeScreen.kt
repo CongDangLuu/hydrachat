@@ -77,8 +77,8 @@ fun HomeScreen(viewModel: MainViewModel) {
             FilledTonalButton(onClick = { viewModel.logDrink(HydrationMath.SIP_ML) }, modifier = Modifier.weight(1f)) {
                 Text("💧 ${HydrationMath.SIP_ML}ml", maxLines = 1)
             }
-            OutlinedButton(onClick = { viewModel.showReminderNow() }, modifier = Modifier.weight(1f)) {
-                Text("🫧 Thử", maxLines = 1)
+            OutlinedButton(onClick = { viewModel.remindInChat() }, modifier = Modifier.weight(1f)) {
+                Text("💬 Thử", maxLines = 1)
             }
         }
     }

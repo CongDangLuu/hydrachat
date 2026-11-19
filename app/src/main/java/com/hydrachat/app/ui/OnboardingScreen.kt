@@ -195,7 +195,7 @@ private fun PermissionStep(viewModel: MainViewModel, persona: Persona, onFinish:
     LaunchedEffect(canOverlay) {
         if (canOverlay && !isWelcomeShown) {
             isWelcomeShown = true
-            viewModel.showReminderNow(welcomeNudge(persona))
+            viewModel.showWelcomeBubble(welcomeNudge(persona))
         }
     }
 
