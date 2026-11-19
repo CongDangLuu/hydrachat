@@ -12,6 +12,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -73,30 +74,40 @@ class BubbleService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val nudge = intent?.toNudge()
+        val isForeground = enterForeground()
+        if (nudge == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (!isForeground || !Settings.canDrawOverlays(this)) {
+            showFallback(this, nudge)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        showReminder(nudge)
+        return START_NOT_STICKY
+    }
+
+    private fun enterForeground(): Boolean {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         } else {
             0
         }
-        ServiceCompat.startForeground(
-            this,
-            ReminderNotifier.SERVICE_NOTIFICATION_ID,
-            ReminderNotifier.serviceNotification(this),
-            type,
-        )
-        val chatText = intent?.getStringExtra(EXTRA_CHAT_TEXT)
-        if (chatText.isNullOrBlank() || !Settings.canDrawOverlays(this)) {
-            stopSelf()
-            return START_NOT_STICKY
+        return try {
+            ServiceCompat.startForeground(
+                this,
+                ReminderNotifier.SERVICE_NOTIFICATION_ID,
+                ReminderNotifier.serviceNotification(this),
+                type,
+            )
+            true
+        } catch (e: IllegalStateException) {
+            // ForegroundServiceStartNotAllowedException (API 31+) extends IllegalStateException.
+            Log.w(TAG, "startForeground was refused: ${e.javaClass.simpleName}")
+            false
         }
-        showReminder(
-            NudgeContent(
-                chatText = chatText,
-                quickReplyText = intent.getStringExtra(EXTRA_QUICK_REPLY).orEmpty(),
-                miniQuest = intent.getStringExtra(EXTRA_MINI_QUEST).orEmpty(),
-            ),
-        )
-        return START_NOT_STICKY
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -120,7 +131,6 @@ class BubbleService : Service() {
         state.targetMl = settings.targetMl.coerceAtLeast(1)
         state.cupMl = settings.cupMl
         state.phase = PanelPhase.Asking
-        state.isQuestDone = false
         state.hasUnread = true
         scope.launch { state.totalMl = container.repository.todayTotalMl() }
 
@@ -203,7 +213,6 @@ class BubbleService : Service() {
                 state = state,
                 onDrink = ::onDrink,
                 onSnooze = ::onSnooze,
-                onQuestDone = ::onQuestDone,
                 onClose = ::hidePanel,
             )
         }
@@ -262,7 +271,7 @@ class BubbleService : Service() {
         scope.launch {
             val result = container.repository.logDrink(amountMl)
             state.totalMl = result.totalMl
-            showAnswerThenClose("${result.praise}\n+${result.pointsEarned} giọt sương 💧")
+            showAnswerThenClose("${result.praise}\n+${result.pointsEarned} giọt sương 💧", result.isPraiseFromAi)
         }
     }
 
@@ -276,15 +285,10 @@ class BubbleService : Service() {
         }
     }
 
-    private fun onQuestDone() {
-        if (state.isQuestDone) return
-        state.isQuestDone = true
-        scope.launch { container.repository.completeMiniQuest(state.nudge.miniQuest) }
-    }
-
-    private suspend fun showAnswerThenClose(text: String) {
+    private suspend fun showAnswerThenClose(text: String, isFromAi: Boolean = false) {
         timeoutJob?.cancel()
         state.answerText = text
+        state.isAnswerFromAi = isFromAi
         state.phase = PanelPhase.Answered
         delay(AUTO_COLLAPSE_MS)
         dismissAll()
@@ -395,24 +399,41 @@ class BubbleService : Service() {
     }
 
     companion object {
-        private const val EXTRA_CHAT_TEXT = "chat_text"
-        private const val EXTRA_QUICK_REPLY = "quick_reply"
-        private const val EXTRA_MINI_QUEST = "mini_quest"
         private const val INITIAL_Y_RATIO = 0.3f
         private const val PANEL_HEIGHT_RATIO = 0.42f
         private const val DISMISS_BOTTOM_MARGIN_DP = 48
         private const val DISMISS_RADIUS_DP = 90
         private const val SNAP_DURATION_MS = 250L
         private const val PREVIEW_DURATION_MS = 5_000L
-        private const val AUTO_COLLAPSE_MS = 1_500L
         private const val IDLE_TIMEOUT_MS = 3 * 60 * 1000L
+        private const val TAG = "BubbleService"
 
-        fun start(context: Context, nudge: NudgeContent) {
-            val intent = Intent(context, BubbleService::class.java)
-                .putExtra(EXTRA_CHAT_TEXT, nudge.chatText)
-                .putExtra(EXTRA_QUICK_REPLY, nudge.quickReplyText)
-                .putExtra(EXTRA_MINI_QUEST, nudge.miniQuest)
-            ContextCompat.startForegroundService(context, intent)
+        /** Shows the overlay bubble, or the fallback notification when the overlay cannot be used. */
+        fun show(context: Context, nudge: NudgeContent) {
+            if (Settings.canDrawOverlays(context) && start(context, nudge)) return
+            showFallback(context, nudge)
+        }
+
+        /** Removes a bubble that is still on screen; a no-op when none is shown. */
+        fun dismiss(context: Context) {
+            context.stopService(Intent(context, BubbleService::class.java))
+        }
+
+        /** Returns false when Android refuses a foreground service start, e.g. from the background on 12+. */
+        private fun start(context: Context, nudge: NudgeContent): Boolean {
+            val intent = Intent(context, BubbleService::class.java).putNudge(nudge)
+            return try {
+                ContextCompat.startForegroundService(context, intent)
+                true
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Bubble service start was refused: ${e.javaClass.simpleName}")
+                false
+            }
+        }
+
+        private fun showFallback(context: Context, nudge: NudgeContent) {
+            val settings = (context.applicationContext as HydraApp).container.settings.current
+            ReminderNotifier.showReminder(context, settings, nudge)
         }
     }
 }

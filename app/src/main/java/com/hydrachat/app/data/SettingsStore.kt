@@ -18,6 +18,8 @@ data class UserSettings(
     val isOnboarded: Boolean = false,
     val personaId: String = Persona.GenZ.id,
     val weightKg: Int = 60,
+    val isAge55Plus: Boolean = false,
+    // Values equal to the default are not stored, so changing this would silently move existing users' targets.
     val targetMl: Int = 2000,
     val cupMl: Int = 250,
     val workStartMinute: Int = 8 * 60 + 30,
@@ -34,6 +36,9 @@ data class UserSettings(
     val activePacks: Set<String> = emptySet(),
     val claimedQuests: Set<String> = emptySet(),
     val nextReminderAt: Long = 0,
+    /** Gemini praise of the last reminder, used once when the user logs the drink it asked for. */
+    val pendingPraise: String = "",
+    val pendingPraiseAt: Long = 0,
 ) {
     val persona: Persona get() = Persona.fromId(personaId)
     val schedule: WorkSchedule get() = WorkSchedule(workStartMinute, workEndMinute, skipWeekends)

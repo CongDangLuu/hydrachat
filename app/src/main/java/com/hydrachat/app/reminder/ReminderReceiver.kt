@@ -3,7 +3,6 @@ package com.hydrachat.app.reminder
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.provider.Settings
 import android.util.Log
 import com.hydrachat.app.AppContainer
 import com.hydrachat.app.HydraApp
@@ -42,7 +41,9 @@ class ReminderReceiver : BroadcastReceiver() {
             container.scheduler.scheduleNext(skipToday = true)
             return
         }
-        val deferReason = ContextDetector.deferReason(context, settings.hiddenApps)
+        // While the app is open its chat room shows the line, so there is no bubble to defer or show.
+        val isAppOpen = container.screenVisibility.isAppOpen
+        val deferReason = if (isAppOpen) null else ContextDetector.deferReason(context, settings.hiddenApps)
         if (deferReason != null) {
             Log.i(TAG, "Reminder deferred: $deferReason")
             container.scheduler.scheduleInMinutes(HydrationMath.DEFER_MINUTES)
@@ -50,11 +51,7 @@ class ReminderReceiver : BroadcastReceiver() {
         }
         val nudge = container.repository.nextNudge()
         container.repository.recordNudgeShown(nudge)
-        if (Settings.canDrawOverlays(context)) {
-            BubbleService.start(context, nudge)
-        } else {
-            ReminderNotifier.showReminder(context, settings.persona, nudge, settings.cupMl)
-        }
+        if (!isAppOpen) BubbleService.show(context, nudge)
         container.scheduler.scheduleNext()
     }
 

@@ -19,13 +19,15 @@ object HydrationMath {
     const val SNOOZE_MINUTES = 20
     const val DEFER_MINUTES = 10
     const val POINTS_PER_100_ML = 4
-    const val MINI_QUEST_POINTS = 5
     const val GOAL_BONUS_POINTS = 50
 
-    private const val ML_PER_KG = 33
+    // Vietnam National Institute of Nutrition (2016): 35 ml/kg for moderately active adults, 30 ml/kg from age 55.
+    private const val ML_PER_KG_ADULT = 35
+    private const val ML_PER_KG_AGE_55_PLUS = 30
     private const val ROUNDING_ML = 50
-    private const val MIN_TARGET_ML = 1200
-    private const val MAX_TARGET_ML = 4000
+    // Clamp so very light people are not under-served and heavy people are not pushed to over-drink.
+    private const val MIN_TARGET_ML = 1500
+    private const val MAX_TARGET_ML = 3000
     private const val MIN_INTERVAL_MINUTES = 30
     private const val MAX_INTERVAL_MINUTES = 90
     private const val INTERVAL_STEP_MINUTES = 5
@@ -35,8 +37,8 @@ object HydrationMath {
     private const val MINUTES_PER_HOUR = 60
     private const val MAX_STREAK_LOOKBACK_DAYS = 365L
 
-    fun dailyTargetMl(weightKg: Int): Int {
-        val raw = weightKg * ML_PER_KG
+    fun dailyTargetMl(weightKg: Int, isAge55Plus: Boolean): Int {
+        val raw = weightKg * (if (isAge55Plus) ML_PER_KG_AGE_55_PLUS else ML_PER_KG_ADULT)
         val rounded = (raw + ROUNDING_ML / 2) / ROUNDING_ML * ROUNDING_ML
         return rounded.coerceIn(MIN_TARGET_ML, MAX_TARGET_ML)
     }

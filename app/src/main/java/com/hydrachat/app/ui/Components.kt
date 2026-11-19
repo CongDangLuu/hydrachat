@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hydrachat.app.ai.AI_SOURCE_LABEL
 import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreItem
 
@@ -49,7 +51,12 @@ fun PersonaAvatar(persona: Persona, skin: StoreItem, size: Dp, modifier: Modifie
 }
 
 @Composable
-fun ChatBubble(text: String, isFromUser: Boolean, modifier: Modifier = Modifier, quest: String? = null) {
+fun ChatBubble(
+    text: String,
+    isFromUser: Boolean,
+    modifier: Modifier = Modifier,
+    isFromAi: Boolean = false,
+) {
     val colors = MaterialTheme.colorScheme
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -66,8 +73,10 @@ fun ChatBubble(text: String, isFromUser: Boolean, modifier: Modifier = Modifier,
             ),
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
-            val body = if (quest.isNullOrBlank()) text else "$text\n🎯 $quest"
-            Text(text = body, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), fontSize = 15.sp)
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(text = text, fontSize = 15.sp)
+                if (isFromAi) Text(AI_SOURCE_LABEL, fontSize = 11.sp, color = colors.onSurfaceVariant)
+            }
         }
     }
 }

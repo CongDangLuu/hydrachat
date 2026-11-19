@@ -2,7 +2,9 @@ package com.hydrachat.app.ui
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -51,8 +53,9 @@ private const val WEIGHT_STEP_KG = 5
 private const val MIN_WEIGHT_KG = 35
 private const val MAX_WEIGHT_KG = 150
 private const val TARGET_STEP_ML = 100
-private const val MIN_TARGET_ML = 800
-private const val MAX_TARGET_ML = 5000
+// Manual override is wider than the computed range, but still capped so the app never chases an unsafe goal.
+private const val MIN_TARGET_ML = 1000
+private const val MAX_TARGET_ML = 4000
 private const val TIME_STEP_MINUTES = 30
 private const val MIN_WORK_SPAN_MINUTES = 60
 private const val LAST_MINUTE_OF_DAY = 23 * 60 + 30
@@ -82,7 +85,14 @@ fun SettingsSection(viewModel: MainViewModel, settings: UserSettings) {
         SettingsCard("Mục tiêu nước") {
             StepperRow("Cân nặng", "${settings.weightKg} kg") { direction ->
                 val weight = (settings.weightKg + direction * WEIGHT_STEP_KG).coerceIn(MIN_WEIGHT_KG, MAX_WEIGHT_KG)
-                viewModel.updateSchedule { it.copy(weightKg = weight, targetMl = HydrationMath.dailyTargetMl(weight)) }
+                viewModel.updateSchedule {
+                    it.copy(weightKg = weight, targetMl = HydrationMath.dailyTargetMl(weight, it.isAge55Plus))
+                }
+            }
+            SwitchRow("Từ 55 tuổi trở lên", settings.isAge55Plus) { isOn ->
+                viewModel.updateSchedule {
+                    it.copy(isAge55Plus = isOn, targetMl = HydrationMath.dailyTargetMl(it.weightKg, isOn))
+                }
             }
             StepperRow("Mục tiêu/ngày", "${settings.targetMl} ml") { direction ->
                 val target = (settings.targetMl + direction * TARGET_STEP_ML).coerceIn(MIN_TARGET_ML, MAX_TARGET_ML)
@@ -167,12 +177,17 @@ private fun SwitchRow(label: String, isChecked: Boolean, onChange: (Boolean) -> 
 @Composable
 private fun GeminiCard(viewModel: MainViewModel, settings: UserSettings) {
     var draftKey by rememberSaveable(settings.apiKey) { mutableStateOf(settings.apiKey) }
+    var testResult by rememberSaveable { mutableStateOf("") }
+    var isTesting by remember { mutableStateOf(false) }
     SettingsCard("Gemini AI (lời thoại động)") {
         Text(
-            if (settings.apiKey.isBlank()) {
-                "Chưa có API key: đang dùng kho câu thoại offline. Lấy key miễn phí ở Google AI Studio."
-            } else {
-                "Đã bật: câu thoại được tải trước 5 phút mỗi lần nhắc, lỗi mạng sẽ dùng kho offline."
+            when {
+                settings.apiKey.isNotBlank() ->
+                    "Đang dùng key riêng của bạn: câu thoại được tải trước 5 phút mỗi lần nhắc, lỗi mạng sẽ dùng kho offline."
+                viewModel.isProxyAvailable() ->
+                    "Đã bật qua máy chủ HydraChat, không cần key. Nhập key riêng nếu muốn dùng hạn mức của bạn."
+                else ->
+                    "Chưa có API key: đang dùng kho câu thoại offline. Lấy key miễn phí ở Google AI Studio."
             },
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -186,10 +201,26 @@ private fun GeminiCard(viewModel: MainViewModel, settings: UserSettings) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedButton(
-            onClick = { viewModel.updateSchedule { it.copy(apiKey = draftKey) } },
-            enabled = draftKey != settings.apiKey,
-        ) { Text("Lưu key") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { viewModel.updateSchedule { it.copy(apiKey = draftKey) } },
+                enabled = draftKey != settings.apiKey,
+            ) { Text("Lưu key") }
+            OutlinedButton(
+                onClick = {
+                    isTesting = true
+                    testResult = "Đang gọi Gemini..."
+                    viewModel.testGemini {
+                        testResult = it
+                        isTesting = false
+                    }
+                },
+                enabled = (settings.apiKey.isNotBlank() || viewModel.isProxyAvailable()) && !isTesting,
+            ) { Text("Thử Gemini") }
+        }
+        if (testResult.isNotBlank()) {
+            Text(testResult, fontSize = 13.sp)
+        }
     }
 }
 
@@ -253,22 +284,41 @@ private fun PermissionsCard(viewModel: MainViewModel) {
     var canOverlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var canNotify by remember { mutableStateOf(ReminderNotifier.canPost(context)) }
     var canExact by remember { mutableStateOf(viewModel.canScheduleExact()) }
+    var canBubble by remember { mutableStateOf(ReminderNotifier.canBubble(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         canOverlay = Settings.canDrawOverlays(context)
         canNotify = ReminderNotifier.canPost(context)
         canExact = viewModel.canScheduleExact()
+        canBubble = ReminderNotifier.canBubble(context)
     }
     SettingsCard("Quyền") {
         PermissionRow("🫧 Nổi bong bóng", canOverlay) { context.openSettings(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) }
         PermissionRow("🔔 Thông báo", canNotify) { context.openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS) }
         PermissionRow("⏰ Nhắc đúng giờ", canExact) { context.openSettings(EXACT_ALARM_SETTINGS_ACTION) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            PermissionRow("💬 Bong bóng hệ thống", canBubble) { context.openBubbleSettings() }
+        }
         if (!canOverlay) {
             Text(
-                "Chưa có quyền nổi bong bóng: mình sẽ nhắc bằng thông báo có nút trả lời nhanh.",
+                "Chưa có quyền nổi bong bóng: mình sẽ nhắc bằng bong bóng hệ thống (nếu được bật) " +
+                    "hoặc thông báo có nút trả lời nhanh.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+// This screen takes the package as an extra, not as a "package:" URI like openSettings uses.
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun Context.openBubbleSettings() {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_BUBBLE_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    if (intent.resolveActivity(packageManager) != null) {
+        startActivity(intent)
+    } else {
+        openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
     }
 }
 

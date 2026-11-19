@@ -50,6 +50,8 @@ import com.hydrachat.app.ui.PersonaAvatar
 
 const val BUBBLE_BOX_DP = 68
 const val DISMISS_TARGET_DP = 64
+/** How long the praise stays visible before the overlay or system bubble closes itself. */
+const val AUTO_COLLAPSE_MS = 1_500L
 private const val AVATAR_DP = 60
 private const val DISMISS_ACTIVE_SCALE = 1.25f
 
@@ -57,7 +59,7 @@ enum class PanelPhase { Asking, Answered }
 
 /** Observable state shared by the overlay windows of one reminder. */
 class BubbleUiState {
-    var nudge by mutableStateOf(NudgeContent("", "", ""))
+    var nudge by mutableStateOf(NudgeContent("", ""))
     var persona by mutableStateOf(Persona.GenZ)
     var skin by mutableStateOf<StoreItem>(StoreCatalog.skin(StoreCatalog.DEFAULT_SKIN_ID))
     var totalMl by mutableIntStateOf(0)
@@ -65,7 +67,7 @@ class BubbleUiState {
     var cupMl by mutableIntStateOf(0)
     var phase by mutableStateOf(PanelPhase.Asking)
     var answerText by mutableStateOf("")
-    var isQuestDone by mutableStateOf(false)
+    var isAnswerFromAi by mutableStateOf(false)
     var hasUnread by mutableStateOf(true)
     var isOverDismiss by mutableStateOf(false)
 }
@@ -130,7 +132,6 @@ fun ChatPanel(
     state: BubbleUiState,
     onDrink: (Int) -> Unit,
     onSnooze: () -> Unit,
-    onQuestDone: () -> Unit,
     onClose: () -> Unit,
 ) {
     Surface(
@@ -145,11 +146,10 @@ fun ChatPanel(
         ) {
             PanelHeader(state, onClose)
             if (state.phase == PanelPhase.Asking) {
-                ChatBubble(text = state.nudge.chatText, isFromUser = false)
-                QuestRow(state, onQuestDone)
+                ChatBubble(text = state.nudge.chatText, isFromUser = false, isFromAi = state.nudge.isFromAi)
                 QuickReplies(state, onDrink, onSnooze)
             } else {
-                ChatBubble(text = state.answerText, isFromUser = false)
+                ChatBubble(text = state.answerText, isFromUser = false, isFromAi = state.isAnswerFromAi)
                 Text("👏💧", fontSize = 44.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         }
@@ -175,27 +175,6 @@ private fun PanelHeader(state: BubbleUiState, onClose: () -> Unit) {
             )
         }
         TextButton(onClick = onClose) { Text("Ẩn") }
-    }
-}
-
-@Composable
-private fun QuestRow(state: BubbleUiState, onQuestDone: () -> Unit) {
-    if (state.nudge.miniQuest.isBlank()) return
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(14.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "🎯 ${state.nudge.miniQuest}",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onQuestDone, enabled = !state.isQuestDone) {
-                Text(if (state.isQuestDone) "✅ Xong" else "Xong +${HydrationMath.MINI_QUEST_POINTS}")
-            }
-        }
     }
 }
 

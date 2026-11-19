@@ -66,7 +66,9 @@ fun HomeScreen(viewModel: MainViewModel) {
             if (chat.isEmpty()) {
                 item { ChatBubble("Hôm nay chưa có tin nhắn nào. Tới giờ mình sẽ nhắc bạn nha!", isFromUser = false) }
             }
-            items(chat, key = { it.id }) { ChatBubble(text = it.text, isFromUser = it.isFromUser, quest = it.quest) }
+            items(chat, key = { it.id }) { 
+                ChatBubble(text = it.text, isFromUser = it.isFromUser, isFromAi = it.isFromAi)
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
             Button(onClick = { viewModel.logDrink(settings.cupMl) }, modifier = Modifier.weight(1f)) {
@@ -75,8 +77,8 @@ fun HomeScreen(viewModel: MainViewModel) {
             FilledTonalButton(onClick = { viewModel.logDrink(HydrationMath.SIP_ML) }, modifier = Modifier.weight(1f)) {
                 Text("💧 ${HydrationMath.SIP_ML}ml", maxLines = 1)
             }
-            OutlinedButton(onClick = { viewModel.showReminderNow() }, modifier = Modifier.weight(1f)) {
-                Text("🫧 Thử", maxLines = 1)
+            OutlinedButton(onClick = { viewModel.remindInChat() }, modifier = Modifier.weight(1f)) {
+                Text("💬 Thử", maxLines = 1)
             }
         }
     }

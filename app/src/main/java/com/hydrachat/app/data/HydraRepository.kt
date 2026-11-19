@@ -5,6 +5,7 @@ import com.hydrachat.app.ai.GeminiClient
 import com.hydrachat.app.ai.NudgeContent
 import com.hydrachat.app.ai.NudgeRequest
 import com.hydrachat.app.ai.OfflineLines
+import com.hydrachat.app.ai.ProxyClient
 import com.hydrachat.app.domain.DailyQuest
 import com.hydrachat.app.domain.HydrationMath
 import com.hydrachat.app.domain.ItemKind
@@ -14,6 +15,7 @@ import java.time.ZoneId
 
 data class DrinkResult(
     val praise: String,
+    val isPraiseFromAi: Boolean,
     val totalMl: Int,
     val targetMl: Int,
     val pointsEarned: Int,
@@ -25,6 +27,7 @@ class HydraRepository(
     private val settings: SettingsStore,
     private val offline: OfflineLines,
     private val gemini: GeminiClient,
+    private val proxy: ProxyClient,
 ) {
     suspend fun todayTotalMl(): Int = db.waterDao().sumSince(todayStart())
 
@@ -35,39 +38,58 @@ class HydraRepository(
         val cached = db.nudgeDao().latestFor(current.personaId, minCreatedAt)
             ?: return offline.pick(current.persona, current.activePacks)
         db.nudgeDao().consume(cached.id, minCreatedAt)
-        return NudgeContent(cached.chatText, cached.quickReplyText, cached.miniQuest)
+        // Only Gemini lines are ever cached; offline lines are picked on the spot.
+        return NudgeContent(cached.chatText, cached.quickReplyText, cached.praiseText, isFromAi = true)
     }
 
-    /** Returns true when a Gemini line was fetched and cached for the reminder at `forTimeMillis`. */
-    suspend fun prefetchNudge(forTimeMillis: Long): Boolean {
+    /** A personal key (direct Gemini call) or the Firebase proxy; without either, only offline lines are used. */
+    fun isAiAvailable(): Boolean = settings.current.apiKey.isNotBlank() || proxy.isAvailable
+
+    /** Fetches a Gemini line for the reminder at `forTimeMillis` and caches it for the next bubble. */
+    suspend fun prefetchNudge(forTimeMillis: Long): Result<NudgeContent> {
         val current = settings.current
-        if (current.apiKey.isBlank()) return false
+        if (!isAiAvailable()) return Result.failure(IllegalStateException("Chưa có API key"))
         val request = NudgeRequest(
+            personaId = current.persona.id,
             personaRole = current.persona.promptRole,
             timeContext = HydrationMath.timeContext(forTimeMillis, ZoneId.systemDefault()),
             currentMl = todayTotalMl(),
             targetMl = current.targetMl,
         )
-        val nudge = gemini.generateNudge(current.apiKey, request).getOrElse { error ->
+        val result = if (current.apiKey.isNotBlank()) {
+            gemini.generateNudge(current.apiKey, request)
+        } else {
+            proxy.generateNudge(request)
+        }
+        val nudge = result.getOrElse { error ->
             Log.w(TAG, "Gemini prefetch failed, the offline library will be used: ${error.javaClass.simpleName}")
-            return false
+            return Result.failure(error)
         }
         db.nudgeDao().insert(
             CachedNudge(
                 personaId = current.personaId,
                 chatText = nudge.chatText,
                 quickReplyText = nudge.quickReplyText,
-                miniQuest = nudge.miniQuest,
+                praiseText = nudge.praiseText,
                 createdAt = System.currentTimeMillis(),
             ),
         )
-        return true
+        return Result.success(nudge.copy(isFromAi = true))
     }
 
     suspend fun recordNudgeShown(nudge: NudgeContent) {
         val now = System.currentTimeMillis()
         db.chatDao().deleteOlderThan(now - CHAT_RETENTION_MS)
-        db.chatDao().insert(ChatMessage(timestamp = now, isFromUser = false, text = nudge.chatText, quest = nudge.miniQuest))
+        db.chatDao().insert(
+            ChatMessage(
+                timestamp = now,
+                isFromUser = false,
+                text = nudge.chatText,
+                isFromAi = nudge.isFromAi,
+            ),
+        )
+        val praise = if (nudge.isFromAi) nudge.praiseText else ""
+        settings.update { it.copy(pendingPraise = praise, pendingPraiseAt = now) }
     }
 
     suspend fun recordBotMessage(text: String) {
@@ -85,14 +107,27 @@ class HydraRepository(
             if (isGoalJustReached) HydrationMath.GOAL_BONUS_POINTS else 0
         settings.update { it.copy(points = it.points + earned) }
 
-        val praise = if (isGoalJustReached) {
-            "🎉 Đạt mục tiêu $target ml hôm nay rồi! Thưởng nóng ${HydrationMath.GOAL_BONUS_POINTS} giọt sương."
-        } else {
-            offline.praise(settings.current.persona)
+        val aiPraise = takePendingPraise(now)
+        val praise = when {
+            isGoalJustReached ->
+                "🎉 Đạt mục tiêu $target ml hôm nay rồi! Thưởng nóng ${HydrationMath.GOAL_BONUS_POINTS} giọt sương."
+            aiPraise != null -> aiPraise
+            else -> offline.praise(settings.current.persona)
         }
+        val isPraiseFromAi = !isGoalJustReached && aiPraise != null
         db.chatDao().insert(ChatMessage(timestamp = now, isFromUser = true, text = "🥤 Đã uống $amountMl ml"))
-        db.chatDao().insert(ChatMessage(timestamp = now + 1, isFromUser = false, text = praise))
-        return DrinkResult(praise, total, target, earned, isGoalJustReached)
+        db.chatDao().insert(
+            ChatMessage(timestamp = now + 1, isFromUser = false, text = praise, isFromAi = isPraiseFromAi),
+        )
+        return DrinkResult(praise, isPraiseFromAi, total, target, earned, isGoalJustReached)
+    }
+
+    /** Returns the last reminder's Gemini praise once; a stale one would answer a reminder from hours ago. */
+    private fun takePendingPraise(now: Long): String? {
+        val current = settings.current
+        if (current.pendingPraise.isBlank()) return null
+        settings.update { it.copy(pendingPraise = "") }
+        return current.pendingPraise.takeIf { now - current.pendingPraiseAt < PENDING_PRAISE_TTL_MS }
     }
 
     suspend fun recordSnooze() {
@@ -103,11 +138,6 @@ class HydraRepository(
                 text = "🤫 Đang họp, nhắc lại sau ${HydrationMath.SNOOZE_MINUTES}p",
             ),
         )
-    }
-
-    suspend fun completeMiniQuest(questText: String) {
-        db.questDao().insert(QuestLog(timestamp = System.currentTimeMillis(), questText = questText))
-        settings.update { it.copy(points = it.points + HydrationMath.MINI_QUEST_POINTS) }
     }
 
     /** Buys the item if affordable; returns false when it is already owned or too expensive. */
@@ -157,5 +187,7 @@ class HydraRepository(
         const val NUDGE_FRESHNESS_MS = 30 * 60 * 1000L
         const val CHAT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000L
         const val ML_PER_POINT_UNIT = 100
+        // Longer than the widest reminder interval (90 min), so a drink before the next reminder still gets it.
+        const val PENDING_PRAISE_TTL_MS = 2 * 60 * 60 * 1000L
     }
 }

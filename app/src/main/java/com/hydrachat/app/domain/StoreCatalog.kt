@@ -12,7 +12,7 @@ data class StoreItem(
     val ringColors: List<Long> = emptyList(),
 )
 
-enum class QuestMetric { CupsToday, GoalReached, MiniQuests, Streak }
+enum class QuestMetric { CupsToday, GoalReached, Streak }
 
 data class DailyQuest(
     val id: String,
@@ -25,13 +25,11 @@ data class DailyQuest(
 data class QuestProgress(
     val cupsToday: Int,
     val isGoalReached: Boolean,
-    val miniQuestsToday: Int,
     val streakDays: Int,
 ) {
     fun valueFor(quest: DailyQuest): Int = when (quest.metric) {
         QuestMetric.CupsToday -> cupsToday
         QuestMetric.GoalReached -> if (isGoalReached) 1 else 0
-        QuestMetric.MiniQuests -> miniQuestsToday
         QuestMetric.Streak -> streakDays
     }
 }
@@ -55,7 +53,6 @@ object StoreCatalog {
 
     val dailyQuests: List<DailyQuest> = listOf(
         DailyQuest("cups_4", "Uống 4 lần trong ngày", QuestMetric.CupsToday, 4, 20),
-        DailyQuest("mini_3", "Hoàn thành 3 nhiệm vụ giãn cơ", QuestMetric.MiniQuests, 3, 20),
         DailyQuest("goal", "Đạt mục tiêu nước hôm nay", QuestMetric.GoalReached, 1, 30),
         DailyQuest("streak_3", "Giữ chuỗi 3 ngày đạt mục tiêu", QuestMetric.Streak, 3, 50),
     )

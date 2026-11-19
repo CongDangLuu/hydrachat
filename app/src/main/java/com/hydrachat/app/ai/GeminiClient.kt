@@ -19,6 +19,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 data class NudgeRequest(
+    val personaId: String,
     val personaRole: String,
     val timeContext: String,
     val currentMl: Int,
@@ -89,18 +90,17 @@ class GeminiClient {
         putJsonObject("generationConfig") {
             put("temperature", TEMPERATURE)
             put("responseMimeType", "application/json")
-            putJsonObject("thinkingConfig") { put("thinkingBudget", 0) }
             putJsonObject("responseSchema") {
                 put("type", "OBJECT")
                 putJsonObject("properties") {
                     stringField("chatText", "Câu nhắn nhắc uống nước ngắn gọn, đúng tính cách, có emoji")
                     stringField("quickReplyText", "Nội dung nút bấm xác nhận đã uống, tối đa 4 từ")
-                    stringField("miniQuest", "Một hành động giãn cơ/nghỉ mắt 10 giây cho dân văn phòng")
+                    stringField("praiseText", "Câu khen ngắn đúng tính cách khi người dùng báo đã uống, có emoji")
                 }
                 putJsonArray("required") {
                     add("chatText")
                     add("quickReplyText")
-                    add("miniQuest")
+                    add("praiseText")
                 }
             }
         }
@@ -116,10 +116,10 @@ class GeminiClient {
     private fun userPrompt(request: NudgeRequest): String =
         "Vai diễn: ${request.personaRole} | Thời điểm: ${request.timeContext} | " +
             "Tiến độ: ${request.currentMl} / ${request.targetMl} ml. " +
-            "Hãy nhắn 1 tin nhắc uống nước kèm nhiệm vụ vận động nhỏ."
+            "Hãy nhắn 1 tin nhắc uống nước và 1 câu khen khi người dùng đã uống."
 
     private companion object {
-        const val MODEL = "gemini-2.5-flash"
+        const val MODEL = "gemini-3.5-flash-lite"
         const val ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent"
         const val TIMEOUT_MS = 15_000
         const val TEMPERATURE = 0.9

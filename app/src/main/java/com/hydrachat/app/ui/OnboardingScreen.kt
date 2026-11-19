@@ -52,7 +52,7 @@ import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreCatalog
 import com.hydrachat.app.reminder.ReminderNotifier
 
-private enum class OnboardingStep { PickPersona, Weight, WorkHours, Cup, Permissions }
+private enum class OnboardingStep { PickPersona, Weight, Age, WorkHours, Cup, Permissions }
 
 private data class OnboardingMessage(val text: String, val isFromUser: Boolean)
 
@@ -62,6 +62,7 @@ private data class WorkHoursOption(val startMinute: Int, val endMinute: Int) {
 }
 
 private val weightOptions = listOf(45, 50, 55, 60, 65, 70, 75, 80, 90)
+private val ageOptions = listOf("Dưới 55 tuổi", "Từ 55 tuổi trở lên")
 private val cupOptions = listOf(200, 250, 300, 350, 500)
 private val workHoursOptions = listOf(
     WorkHoursOption(8 * 60, 17 * 60),
@@ -76,6 +77,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
     var step by remember { mutableStateOf(OnboardingStep.PickPersona) }
     var persona by remember { mutableStateOf(Persona.GenZ) }
     var weightKg by remember { mutableIntStateOf(60) }
+    var isAge55Plus by remember { mutableStateOf(false) }
     var workHours by remember { mutableStateOf(workHoursOptions[1]) }
     var cupMl by remember { mutableIntStateOf(250) }
     val messages = remember {
@@ -106,7 +108,11 @@ fun OnboardingScreen(viewModel: MainViewModel) {
             }
             OnboardingStep.Weight -> ChipChoices(weightOptions.map { "$it kg" }) { index ->
                 weightKg = weightOptions[index]
-                answer("${weightKg} kg", "Giờ làm việc của bạn thế nào? Ngoài giờ mình sẽ ngủ đông 😴", OnboardingStep.WorkHours)
+                answer("${weightKg} kg", "Bạn thuộc nhóm tuổi nào? Từ 55 tuổi nhu cầu nước thấp hơn một chút.", OnboardingStep.Age)
+            }
+            OnboardingStep.Age -> ChipChoices(ageOptions) { index ->
+                isAge55Plus = index == ageOptions.lastIndex
+                answer(ageOptions[index], "Giờ làm việc của bạn thế nào? Ngoài giờ mình sẽ ngủ đông 😴", OnboardingStep.WorkHours)
             }
             OnboardingStep.WorkHours -> ChipChoices(workHoursOptions.map { it.label }) { index ->
                 workHours = workHoursOptions[index]
@@ -114,7 +120,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
             }
             OnboardingStep.Cup -> ChipChoices(cupOptions.map { "$it ml" }) { index ->
                 cupMl = cupOptions[index]
-                val target = HydrationMath.dailyTargetMl(weightKg)
+                val target = HydrationMath.dailyTargetMl(weightKg, isAge55Plus)
                 val cups = (target + cupMl - 1) / cupMl
                 answer(
                     "$cupMl ml",
@@ -128,7 +134,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                 persona = persona,
                 onFinish = {
                     viewModel.finishOnboarding(
-                        OnboardingResult(persona, weightKg, workHours.startMinute, workHours.endMinute, cupMl),
+                        OnboardingResult(persona, weightKg, isAge55Plus, workHours.startMinute, workHours.endMinute, cupMl),
                     )
                 },
             )
@@ -189,7 +195,7 @@ private fun PermissionStep(viewModel: MainViewModel, persona: Persona, onFinish:
     LaunchedEffect(canOverlay) {
         if (canOverlay && !isWelcomeShown) {
             isWelcomeShown = true
-            viewModel.showReminderNow(welcomeNudge(persona))
+            viewModel.showWelcomeBubble(welcomeNudge(persona))
         }
     }
 
@@ -237,5 +243,4 @@ fun Context.openSettings(action: String) {
 private fun welcomeNudge(persona: Persona) = NudgeContent(
     chatText = "${persona.hello} Bong bóng của mình sẽ hiện như thế này mỗi lần tới giờ uống nước!",
     quickReplyText = "Uống ly đầu tiên 🥤",
-    miniQuest = "Vươn vai một cái thật đã để khởi động nào.",
 )

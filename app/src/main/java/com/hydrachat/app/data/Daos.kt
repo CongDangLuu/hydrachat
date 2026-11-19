@@ -43,12 +43,3 @@ interface NudgeDao {
     @Query("DELETE FROM cached_nudges WHERE id = :id OR createdAt < :minCreatedAt")
     suspend fun consume(id: Long, minCreatedAt: Long)
 }
-
-@Dao
-interface QuestDao {
-    @Insert
-    suspend fun insert(log: QuestLog)
-
-    @Query("SELECT COUNT(*) FROM quest_logs WHERE timestamp >= :from")
-    fun observeCountSince(from: Long): Flow<Int>
-}

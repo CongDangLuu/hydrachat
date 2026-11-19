@@ -1,7 +1,6 @@
 package com.hydrachat.app.ui
 
 import android.app.Application
-import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrachat.app.HydraApp
@@ -14,7 +13,6 @@ import com.hydrachat.app.domain.DailyQuest
 import com.hydrachat.app.domain.HydrationMath
 import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreItem
-import com.hydrachat.app.reminder.ReminderNotifier
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +26,7 @@ import java.util.concurrent.TimeUnit
 data class OnboardingResult(
     val persona: Persona,
     val weightKg: Int,
+    val isAge55Plus: Boolean,
     val workStartMinute: Int,
     val workEndMinute: Int,
     val cupMl: Int,
@@ -53,10 +52,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         .flatMapLatest { container.database.waterDao().observeSince(it - TimeUnit.DAYS.toMillis(HISTORY_DAYS)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
-    val miniQuestsToday: StateFlow<Int> = dayStart
-        .flatMapLatest { container.database.questDao().observeCountSince(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
-
     /** Called on resume so "today" rolls over when the app stays open past midnight. */
     fun refreshDay() {
         dayStart.value = currentDayStart()
@@ -64,13 +59,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun canScheduleExact(): Boolean = container.scheduler.canScheduleExact()
 
+    fun isProxyAvailable(): Boolean = container.proxy.isAvailable
+
     fun finishOnboarding(result: OnboardingResult) {
         container.settings.update {
             it.copy(
                 isOnboarded = true,
                 personaId = result.persona.id,
                 weightKg = result.weightKg,
-                targetMl = HydrationMath.dailyTargetMl(result.weightKg),
+                isAge55Plus = result.isAge55Plus,
+                targetMl = HydrationMath.dailyTargetMl(result.weightKg, result.isAge55Plus),
                 cupMl = result.cupMl,
                 workStartMinute = result.workStartMinute,
                 workEndMinute = result.workEndMinute,
@@ -96,18 +94,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repository.logDrink(amountMl) }
     }
 
-    /** Shows a reminder right now: the bubble if allowed, otherwise the fallback notification. */
-    fun showReminderNow(welcome: NudgeContent? = null) {
-        val context = getApplication<Application>()
+    /** Onboarding demo of the reminder bubble; regular reminders skip it while the app is open. */
+    fun showWelcomeBubble(nudge: NudgeContent) {
+        BubbleService.show(getApplication(), nudge)
+    }
+
+    /** The in-app test button: posts a reminder line straight into the chat room. */
+    fun remindInChat() {
+        viewModelScope.launch { repository.recordNudgeShown(freshNudge()) }
+    }
+
+    /** A manual test has no prefetch 5 minutes ahead, so ask Gemini now and fall back to offline lines. */
+    private suspend fun freshNudge(): NudgeContent {
+        if (repository.isAiAvailable()) repository.prefetchNudge(System.currentTimeMillis())
+        return repository.nextNudge()
+    }
+
+    /** Calls Gemini right now so the user can check the key; the line is used by the next bubble. */
+    fun testGemini(onResult: (String) -> Unit) {
         viewModelScope.launch {
-            val nudge = welcome ?: repository.nextNudge()
-            if (welcome == null) repository.recordNudgeShown(nudge)
-            if (Settings.canDrawOverlays(context)) {
-                BubbleService.start(context, nudge)
-            } else {
-                val current = settings.value
-                ReminderNotifier.showReminder(context, current.persona, nudge, current.cupMl)
-            }
+            val result = repository.prefetchNudge(System.currentTimeMillis())
+            onResult(
+                result.fold(
+                    onSuccess = { "✅ ${it.chatText}\n👏 ${it.praiseText}\n🔘 ${it.quickReplyText}" },
+                    onFailure = { "❌ ${it.message ?: it.javaClass.simpleName}" },
+                ),
+            )
         }
     }
 
