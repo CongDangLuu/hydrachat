@@ -59,7 +59,7 @@ enum class PanelPhase { Asking, Answered }
 
 /** Observable state shared by the overlay windows of one reminder. */
 class BubbleUiState {
-    var nudge by mutableStateOf(NudgeContent("", "", ""))
+    var nudge by mutableStateOf(NudgeContent("", ""))
     var persona by mutableStateOf(Persona.GenZ)
     var skin by mutableStateOf<StoreItem>(StoreCatalog.skin(StoreCatalog.DEFAULT_SKIN_ID))
     var totalMl by mutableIntStateOf(0)
@@ -67,7 +67,6 @@ class BubbleUiState {
     var cupMl by mutableIntStateOf(0)
     var phase by mutableStateOf(PanelPhase.Asking)
     var answerText by mutableStateOf("")
-    var isQuestDone by mutableStateOf(false)
     var hasUnread by mutableStateOf(true)
     var isOverDismiss by mutableStateOf(false)
 }
@@ -132,7 +131,6 @@ fun ChatPanel(
     state: BubbleUiState,
     onDrink: (Int) -> Unit,
     onSnooze: () -> Unit,
-    onQuestDone: () -> Unit,
     onClose: () -> Unit,
 ) {
     Surface(
@@ -148,7 +146,6 @@ fun ChatPanel(
             PanelHeader(state, onClose)
             if (state.phase == PanelPhase.Asking) {
                 ChatBubble(text = state.nudge.chatText, isFromUser = false, isFromAi = state.nudge.isFromAi)
-                QuestRow(state, onQuestDone)
                 QuickReplies(state, onDrink, onSnooze)
             } else {
                 ChatBubble(text = state.answerText, isFromUser = false)
@@ -177,27 +174,6 @@ private fun PanelHeader(state: BubbleUiState, onClose: () -> Unit) {
             )
         }
         TextButton(onClick = onClose) { Text("Ẩn") }
-    }
-}
-
-@Composable
-private fun QuestRow(state: BubbleUiState, onQuestDone: () -> Unit) {
-    if (state.nudge.miniQuest.isBlank()) return
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(14.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "🎯 ${state.nudge.miniQuest}",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onQuestDone, enabled = !state.isQuestDone) {
-                Text(if (state.isQuestDone) "✅ Xong" else "Xong +${HydrationMath.MINI_QUEST_POINTS}")
-            }
-        }
     }
 }
 

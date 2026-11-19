@@ -38,7 +38,6 @@ class BubbleActivity : ComponentActivity() {
                     state = state,
                     onDrink = ::onDrink,
                     onSnooze = ::onSnooze,
-                    onQuestDone = ::onQuestDone,
                     onClose = ::finish,
                 )
             }
@@ -75,13 +74,6 @@ class BubbleActivity : ComponentActivity() {
             withContext(NonCancellable) { container.repository.recordSnooze() }
             showAnswerThenClose("Ok, ${HydrationMath.SNOOZE_MINUTES} phút nữa mình nhắc lại nha 🤫")
         }
-    }
-
-    private fun onQuestDone() {
-        if (state.isQuestDone) return
-        state.isQuestDone = true
-        val quest = state.nudge.miniQuest
-        container.appScope.launch { container.repository.completeMiniQuest(quest) }
     }
 
     private suspend fun showAnswerThenClose(text: String) {

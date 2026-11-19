@@ -52,10 +52,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         .flatMapLatest { container.database.waterDao().observeSince(it - TimeUnit.DAYS.toMillis(HISTORY_DAYS)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
-    val miniQuestsToday: StateFlow<Int> = dayStart
-        .flatMapLatest { container.database.questDao().observeCountSince(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), 0)
-
     /** Called on resume so "today" rolls over when the app stays open past midnight. */
     fun refreshDay() {
         dayStart.value = currentDayStart()
@@ -120,7 +116,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val result = repository.prefetchNudge(System.currentTimeMillis())
             onResult(
                 result.fold(
-                    onSuccess = { "✅ ${it.chatText}\n🎯 ${it.miniQuest}\n🔘 ${it.quickReplyText}" },
+                    onSuccess = { "✅ ${it.chatText}\n🔘 ${it.quickReplyText}" },
                     onFailure = { "❌ ${it.message ?: it.javaClass.simpleName}" },
                 ),
             )

@@ -19,7 +19,6 @@ object HydrationMath {
     const val SNOOZE_MINUTES = 20
     const val DEFER_MINUTES = 10
     const val POINTS_PER_100_ML = 4
-    const val MINI_QUEST_POINTS = 5
     const val GOAL_BONUS_POINTS = 50
 
     // Vietnam National Institute of Nutrition (2016): 35 ml/kg for moderately active adults, 30 ml/kg from age 55.

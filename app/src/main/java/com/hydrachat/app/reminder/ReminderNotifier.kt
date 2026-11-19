@@ -77,7 +77,6 @@ object ReminderNotifier {
         // One message, not two: the bubble preview shows only the latest message, which must be the nudge.
         val messageText = listOfNotNull(
             nudge.chatText,
-            "🎯 ${nudge.miniQuest}".takeIf { nudge.miniQuest.isNotBlank() },
             AI_SOURCE_LABEL.takeIf { nudge.isFromAi },
         ).joinToString("\n")
         val style = NotificationCompat.MessagingStyle(Person.Builder().setName(USER_NAME).build())

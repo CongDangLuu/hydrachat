@@ -45,11 +45,9 @@ fun StoreScreen(viewModel: MainViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val todayLogs by viewModel.todayLogs.collectAsStateWithLifecycle()
     val historyLogs by viewModel.historyLogs.collectAsStateWithLifecycle()
-    val miniQuests by viewModel.miniQuestsToday.collectAsStateWithLifecycle()
     val progress = QuestProgress(
         cupsToday = todayLogs.size,
         isGoalReached = todayLogs.sumOf { it.amountMl } >= settings.targetMl,
-        miniQuestsToday = miniQuests,
         streakDays = HydrationMath.streakDays(
             historyLogs.map { it.timestamp to it.amountMl },
             settings.targetMl,

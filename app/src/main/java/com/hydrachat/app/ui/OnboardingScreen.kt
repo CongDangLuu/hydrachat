@@ -243,5 +243,4 @@ fun Context.openSettings(action: String) {
 private fun welcomeNudge(persona: Persona) = NudgeContent(
     chatText = "${persona.hello} Bong bóng của mình sẽ hiện như thế này mỗi lần tới giờ uống nước!",
     quickReplyText = "Uống ly đầu tiên 🥤",
-    miniQuest = "Vươn vai một cái thật đã để khởi động nào.",
 )

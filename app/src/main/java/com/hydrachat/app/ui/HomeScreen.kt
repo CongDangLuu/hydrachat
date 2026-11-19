@@ -67,7 +67,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 item { ChatBubble("Hôm nay chưa có tin nhắn nào. Tới giờ mình sẽ nhắc bạn nha!", isFromUser = false) }
             }
             items(chat, key = { it.id }) { 
-                ChatBubble(text = it.text, isFromUser = it.isFromUser, quest = it.quest, isFromAi = it.isFromAi)
+                ChatBubble(text = it.text, isFromUser = it.isFromUser, isFromAi = it.isFromAi)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {

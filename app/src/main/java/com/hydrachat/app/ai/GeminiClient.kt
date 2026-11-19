@@ -95,12 +95,10 @@ class GeminiClient {
                 putJsonObject("properties") {
                     stringField("chatText", "Câu nhắn nhắc uống nước ngắn gọn, đúng tính cách, có emoji")
                     stringField("quickReplyText", "Nội dung nút bấm xác nhận đã uống, tối đa 4 từ")
-                    stringField("miniQuest", "Một hành động giãn cơ/nghỉ mắt 10 giây cho dân văn phòng")
                 }
                 putJsonArray("required") {
                     add("chatText")
                     add("quickReplyText")
-                    add("miniQuest")
                 }
             }
         }
@@ -116,7 +114,7 @@ class GeminiClient {
     private fun userPrompt(request: NudgeRequest): String =
         "Vai diễn: ${request.personaRole} | Thời điểm: ${request.timeContext} | " +
             "Tiến độ: ${request.currentMl} / ${request.targetMl} ml. " +
-            "Hãy nhắn 1 tin nhắc uống nước kèm nhiệm vụ vận động nhỏ."
+            "Hãy nhắn 1 tin nhắc uống nước."
 
     private companion object {
         const val MODEL = "gemini-3.5-flash-lite"

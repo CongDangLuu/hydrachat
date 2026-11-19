@@ -10,7 +10,6 @@ export interface NudgeInput {
 export interface NudgeContent {
   chatText: string;
   quickReplyText: string;
-  miniQuest: string;
 }
 
 export class InvalidInputError extends Error {}
@@ -62,7 +61,7 @@ export function buildRequestBody(input: NudgeInput): object {
   const userPrompt =
     `Vai diễn: ${PERSONA_ROLES[input.personaId]} | Thời điểm: ${input.timeContext} | ` +
     `Tiến độ: ${input.currentMl} / ${input.targetMl} ml. ` +
-    "Hãy nhắn 1 tin nhắc uống nước kèm nhiệm vụ vận động nhỏ.";
+    "Hãy nhắn 1 tin nhắc uống nước.";
   const stringField = (description: string) => ({ type: "STRING", description });
   return {
     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
@@ -75,9 +74,8 @@ export function buildRequestBody(input: NudgeInput): object {
         properties: {
           chatText: stringField("Câu nhắn nhắc uống nước ngắn gọn, đúng tính cách, có emoji"),
           quickReplyText: stringField("Nội dung nút bấm xác nhận đã uống, tối đa 4 từ"),
-          miniQuest: stringField("Một hành động giãn cơ/nghỉ mắt 10 giây cho dân văn phòng"),
         },
-        required: ["chatText", "quickReplyText", "miniQuest"],
+        required: ["chatText", "quickReplyText"],
       },
     },
   };
@@ -95,7 +93,6 @@ export function parseGeminiResponse(body: unknown): NudgeContent {
   const nudge = {
     chatText: cleanField(parsed.chatText),
     quickReplyText: cleanField(parsed.quickReplyText),
-    miniQuest: cleanField(parsed.miniQuest),
   };
   if (nudge.chatText === "") throw new Error("Gemini returned an empty chat text");
   return nudge;

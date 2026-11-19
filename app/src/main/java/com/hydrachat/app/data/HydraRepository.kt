@@ -38,7 +38,7 @@ class HydraRepository(
             ?: return offline.pick(current.persona, current.activePacks)
         db.nudgeDao().consume(cached.id, minCreatedAt)
         // Only Gemini lines are ever cached; offline lines are picked on the spot.
-        return NudgeContent(cached.chatText, cached.quickReplyText, cached.miniQuest, isFromAi = true)
+        return NudgeContent(cached.chatText, cached.quickReplyText, isFromAi = true)
     }
 
     /** A personal key (direct Gemini call) or the Firebase proxy; without either, only offline lines are used. */
@@ -69,7 +69,6 @@ class HydraRepository(
                 personaId = current.personaId,
                 chatText = nudge.chatText,
                 quickReplyText = nudge.quickReplyText,
-                miniQuest = nudge.miniQuest,
                 createdAt = System.currentTimeMillis(),
             ),
         )
@@ -84,7 +83,6 @@ class HydraRepository(
                 timestamp = now,
                 isFromUser = false,
                 text = nudge.chatText,
-                quest = nudge.miniQuest,
                 isFromAi = nudge.isFromAi,
             ),
         )
@@ -123,11 +121,6 @@ class HydraRepository(
                 text = "🤫 Đang họp, nhắc lại sau ${HydrationMath.SNOOZE_MINUTES}p",
             ),
         )
-    }
-
-    suspend fun completeMiniQuest(questText: String) {
-        db.questDao().insert(QuestLog(timestamp = System.currentTimeMillis(), questText = questText))
-        settings.update { it.copy(points = it.points + HydrationMath.MINI_QUEST_POINTS) }
     }
 
     /** Buys the item if affordable; returns false when it is already owned or too expensive. */

@@ -55,7 +55,6 @@ fun ChatBubble(
     text: String,
     isFromUser: Boolean,
     modifier: Modifier = Modifier,
-    quest: String? = null,
     isFromAi: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -74,9 +73,8 @@ fun ChatBubble(
             ),
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
-            val body = if (quest.isNullOrBlank()) text else "$text\n🎯 $quest"
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(text = body, fontSize = 15.sp)
+                Text(text = text, fontSize = 15.sp)
                 if (isFromAi) Text(AI_SOURCE_LABEL, fontSize = 11.sp, color = colors.onSurfaceVariant)
             }
         }

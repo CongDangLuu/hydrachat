@@ -131,7 +131,6 @@ class BubbleService : Service() {
         state.targetMl = settings.targetMl.coerceAtLeast(1)
         state.cupMl = settings.cupMl
         state.phase = PanelPhase.Asking
-        state.isQuestDone = false
         state.hasUnread = true
         scope.launch { state.totalMl = container.repository.todayTotalMl() }
 
@@ -214,7 +213,6 @@ class BubbleService : Service() {
                 state = state,
                 onDrink = ::onDrink,
                 onSnooze = ::onSnooze,
-                onQuestDone = ::onQuestDone,
                 onClose = ::hidePanel,
             )
         }
@@ -285,12 +283,6 @@ class BubbleService : Service() {
             container.repository.recordSnooze()
             showAnswerThenClose("Ok, ${HydrationMath.SNOOZE_MINUTES} phút nữa mình nhắc lại nha 🤫")
         }
-    }
-
-    private fun onQuestDone() {
-        if (state.isQuestDone) return
-        state.isQuestDone = true
-        scope.launch { container.repository.completeMiniQuest(state.nudge.miniQuest) }
     }
 
     private suspend fun showAnswerThenClose(text: String) {

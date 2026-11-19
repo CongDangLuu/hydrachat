@@ -17,7 +17,6 @@ data class ChatMessage(
     val timestamp: Long,
     val isFromUser: Boolean,
     val text: String,
-    val quest: String? = null,
     @ColumnInfo(defaultValue = "0") val isFromAi: Boolean = false,
 )
 
@@ -28,13 +27,5 @@ data class CachedNudge(
     val personaId: String,
     val chatText: String,
     val quickReplyText: String,
-    val miniQuest: String,
     val createdAt: Long,
-)
-
-@Entity(tableName = "quest_logs")
-data class QuestLog(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val timestamp: Long,
-    val questText: String,
 )

@@ -12,7 +12,6 @@ const val AI_SOURCE_LABEL = "✨ Tạo bởi Gemini"
 data class NudgeContent(
     val chatText: String,
     val quickReplyText: String,
-    val miniQuest: String,
     val isFromAi: Boolean = false,
 )
 
@@ -24,7 +23,6 @@ private data class OfflineLibrary(
     val personas: Map<String, PersonaLines>,
     val packs: Map<String, PersonaLines> = emptyMap(),
     val praises: Map<String, List<String>> = emptyMap(),
-    val quests: List<String>,
 )
 
 /** Bundled fallback lines used when Gemini is unreachable, out of quota, or not configured. */
@@ -41,7 +39,6 @@ class OfflineLines(private val context: Context) {
         return NudgeContent(
             chatText = pool.randomOrNull() ?: DEFAULT_LINE,
             quickReplyText = own?.replies?.randomOrNull() ?: DEFAULT_REPLY,
-            miniQuest = library.quests.randomOrNull() ?: DEFAULT_QUEST,
         )
     }
 
@@ -51,7 +48,6 @@ class OfflineLines(private val context: Context) {
         const val ASSET_NAME = "offline_lines.json"
         const val DEFAULT_LINE = "Đến giờ uống nước rồi nè! 💧"
         const val DEFAULT_REPLY = "Uống liền 🥤"
-        const val DEFAULT_QUEST = "Đứng dậy vươn vai 10 giây nhé."
         const val DEFAULT_PRAISE = "Tuyệt vời! 👏"
     }
 }
