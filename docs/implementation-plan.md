@@ -191,6 +191,8 @@ the Firestore database (the proxy keeps a per-user daily quota of 30 nudges in `
 |---|---|---|
 | 1–4 Foundation | Done | Phase 3 on API 35 emulator; phases 2 and 4 not yet (see §5) |
 | R1 Android toolchain | Done | API 35 emulator: app starts, existing Room data opens, system bubble posts; no API 36 image tested yet |
+| v1.0 product changes (tag `v1.0`) | Done | API 35 emulator: age-based target (35/30 ml/kg, clamped 1,500–3,000 ml), Gemini label, Gemini praise after a drink, no bubble while the app is open, mini-quests removed |
+| Chat input + reminder window (`feature/chat-input`) | Done, not merged | API 35 emulator: typed messages in chat room and overlay bubble, offline reply, Back closes the panel, typed weight/age in onboarding, wake-to-bedtime window. Not verified: Gemini chat replies and drink logging from chat (no key on the test device), full soft keyboard over the bubble panel |
 | R2 KMP restructure | Not started | — |
 | R3 CI | Not started | — |
 | R4 iOS app | Not started | — |
@@ -207,6 +209,13 @@ the Firestore database (the proxy keeps a per-user daily quota of 30 nudges in `
 4. Gemini quota and cost grow with users.
 
 **Follow-ups**
+- Chat replies share the proxy's 30-call daily quota with reminders; raise it or give chat its own quota
+  before release.
+- The chat prompt and schema are duplicated in `GeminiChat.kt` and `backend/functions/src/chat.ts`;
+  keep them in sync (R2 can share the client side).
+- The onboarding welcome bubble shows default cup and target (250 ml, 2,000 ml) instead of the chosen
+  ones, because it is shown before onboarding saves the settings.
+- Typed chat messages (and the last 8 messages) are sent to Gemini; the privacy policy for R6 must say so.
 - Android logs "Bubbles work best with icons of TYPE_URI or TYPE_URI_ADAPTIVE_BITMAP"; switch the
   persona icon to a `content://` URI (FileProvider) before Android requires it.
 - `PERSONA_ROLES` in `backend/functions/src/nudge.ts` duplicates `Persona.promptRole`; keep them in sync
