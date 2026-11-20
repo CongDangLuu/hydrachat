@@ -38,6 +38,7 @@ class BubbleActivity : ComponentActivity() {
                     state = state,
                     onDrink = ::onDrink,
                     onSnooze = ::onSnooze,
+                    onSendMessage = ::onSendMessage,
                     onClose = ::finish,
                 )
             }
@@ -73,6 +74,24 @@ class BubbleActivity : ComponentActivity() {
         lifecycleScope.launch {
             withContext(NonCancellable) { container.repository.recordSnooze() }
             showAnswerThenClose("Ok, ${HydrationMath.SNOOZE_MINUTES} phút nữa mình nhắc lại nha 🤫")
+        }
+    }
+
+    private fun onSendMessage(text: String) {
+        if (isAnswering || state.isSending) return
+        state.isSending = true
+        state.messages += PanelMessage(text, isFromUser = true)
+        lifecycleScope.launch {
+            // The user may collapse the bubble while waiting; the message and any drink must still be saved.
+            val outcome = withContext(NonCancellable) { container.repository.sendUserMessage(text) }
+            state.isSending = false
+            state.messages += PanelMessage(outcome.replyText, isFromUser = false, isFromAi = outcome.isFromAi)
+            val water = outcome.water ?: return@launch
+            state.totalMl = water.totalMl
+            isAnswering = true
+            delay(CHAT_DRINK_COLLAPSE_MS)
+            ReminderNotifier.cancelReminder(this@BubbleActivity)
+            finish()
         }
     }
 

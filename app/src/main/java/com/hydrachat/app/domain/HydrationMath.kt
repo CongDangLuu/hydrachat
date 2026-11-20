@@ -20,6 +20,9 @@ object HydrationMath {
     const val DEFER_MINUTES = 10
     const val POINTS_PER_100_ML = 4
     const val GOAL_BONUS_POINTS = 50
+    // Must match MAX_MESSAGE_LENGTH and MAX_DRANK_ML in backend/functions/src/chat.ts.
+    const val MAX_CHAT_MESSAGE_LENGTH = 300
+    const val MAX_CHAT_DRINK_ML = 1000
 
     // Vietnam National Institute of Nutrition (2016): 35 ml/kg for moderately active adults, 30 ml/kg from age 55.
     private const val ML_PER_KG_ADULT = 35

@@ -16,7 +16,7 @@ export interface NudgeContent {
 export class InvalidInputError extends Error {}
 
 // Must stay in sync with Persona.promptRole in app/src/main/java/com/hydrachat/app/domain/Persona.kt.
-const PERSONA_ROLES: Readonly<Record<string, string>> = {
+export const PERSONA_ROLES: Readonly<Record<string, string>> = {
   boss: "Sếp khó tính nhưng quan tâm",
   crush: "Crush ngọt ngào",
   genz: "Bạn thân Gen Z bắt trend",
@@ -28,7 +28,7 @@ const TIME_CONTEXT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d (sáng|trưa|chiều|tố
 const MAX_CURRENT_ML = 20_000;
 const MIN_TARGET_ML = 100;
 const MAX_TARGET_ML = 10_000;
-const MAX_FIELD_LENGTH = 300;
+export const MAX_FIELD_LENGTH = 300;
 
 const MODEL = "gemini-3.5-flash-lite";
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
@@ -39,7 +39,7 @@ const SYSTEM_INSTRUCTION =
   "ngắn gọn dưới 25 từ, đúng vai diễn, bắt trend nhẹ nhàng. Không chào hỏi rườm rà. " +
   "Luôn trả về định dạng JSON theo đúng schema quy định.";
 
-function isIntInRange(value: unknown, min: number, max: number): value is number {
+export function isIntInRange(value: unknown, min: number, max: number): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
 }
 
@@ -83,15 +83,20 @@ export function buildRequestBody(input: NudgeInput): object {
   };
 }
 
-function cleanField(value: unknown): string {
+export function cleanField(value: unknown): string {
   return typeof value === "string" ? value.trim().slice(0, MAX_FIELD_LENGTH) : "";
 }
 
-export function parseGeminiResponse(body: unknown): NudgeContent {
+/** Returns the structured JSON object Gemini wrote in its first candidate. */
+export function extractStructuredOutput(body: unknown): Record<string, unknown> {
   const text = (body as { candidates?: { content?: { parts?: { text?: unknown }[] } }[] })
     ?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof text !== "string") throw new Error("Gemini response has no text part");
-  const parsed = JSON.parse(text) as Record<string, unknown>;
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+export function parseGeminiResponse(body: unknown): NudgeContent {
+  const parsed = extractStructuredOutput(body);
   const nudge = {
     chatText: cleanField(parsed.chatText),
     quickReplyText: cleanField(parsed.quickReplyText),
@@ -101,14 +106,18 @@ export function parseGeminiResponse(body: unknown): NudgeContent {
   return nudge;
 }
 
-export async function requestNudge(apiKey: string, input: NudgeInput): Promise<NudgeContent> {
+export async function callGemini(apiKey: string, requestBody: object): Promise<unknown> {
   const response = await fetch(ENDPOINT, {
     method: "POST",
     // Header instead of a query parameter keeps the key out of URLs and logs.
     headers: { "Content-Type": "application/json; charset=utf-8", "x-goog-api-key": apiKey },
-    body: JSON.stringify(buildRequestBody(input)),
+    body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`Gemini request failed with HTTP ${response.status}`);
-  return parseGeminiResponse(await response.json());
+  return response.json();
+}
+
+export async function requestNudge(apiKey: string, input: NudgeInput): Promise<NudgeContent> {
+  return parseGeminiResponse(await callGemini(apiKey, buildRequestBody(input)));
 }

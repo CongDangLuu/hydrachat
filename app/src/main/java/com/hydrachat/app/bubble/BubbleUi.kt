@@ -27,8 +27,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,16 +48,22 @@ import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreCatalog
 import com.hydrachat.app.domain.StoreItem
 import com.hydrachat.app.ui.ChatBubble
+import com.hydrachat.app.ui.ChatInputRow
 import com.hydrachat.app.ui.PersonaAvatar
+import com.hydrachat.app.ui.TypingBubble
 
 const val BUBBLE_BOX_DP = 68
 const val DISMISS_TARGET_DP = 64
 /** How long the praise stays visible before the overlay or system bubble closes itself. */
 const val AUTO_COLLAPSE_MS = 1_500L
+/** A chat reply that logged a drink is longer, so it stays a little before the bubble closes. */
+const val CHAT_DRINK_COLLAPSE_MS = 3_000L
 private const val AVATAR_DP = 60
 private const val DISMISS_ACTIVE_SCALE = 1.25f
 
 enum class PanelPhase { Asking, Answered }
+
+data class PanelMessage(val text: String, val isFromUser: Boolean, val isFromAi: Boolean = false)
 
 /** Observable state shared by the overlay windows of one reminder. */
 class BubbleUiState {
@@ -68,6 +76,8 @@ class BubbleUiState {
     var phase by mutableStateOf(PanelPhase.Asking)
     var answerText by mutableStateOf("")
     var isAnswerFromAi by mutableStateOf(false)
+    val messages = mutableStateListOf<PanelMessage>()
+    var isSending by mutableStateOf(false)
     var hasUnread by mutableStateOf(true)
     var isOverDismiss by mutableStateOf(false)
 }
@@ -132,8 +142,12 @@ fun ChatPanel(
     state: BubbleUiState,
     onDrink: (Int) -> Unit,
     onSnooze: () -> Unit,
+    onSendMessage: (String) -> Unit,
     onClose: () -> Unit,
 ) {
+    val scrollState = rememberScrollState()
+    // Keep the newest message and the text box in view as the conversation grows.
+    LaunchedEffect(state.messages.size, state.isSending) { scrollState.animateScrollTo(scrollState.maxValue) }
     Surface(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -141,13 +155,18 @@ fun ChatPanel(
         modifier = Modifier.fillMaxSize(),
     ) {
         Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.verticalScroll(scrollState).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             PanelHeader(state, onClose)
             if (state.phase == PanelPhase.Asking) {
                 ChatBubble(text = state.nudge.chatText, isFromUser = false, isFromAi = state.nudge.isFromAi)
+                state.messages.forEach {
+                    ChatBubble(text = it.text, isFromUser = it.isFromUser, isFromAi = it.isFromAi)
+                }
+                if (state.isSending) TypingBubble()
                 QuickReplies(state, onDrink, onSnooze)
+                ChatInputRow(isSending = state.isSending, onSend = onSendMessage)
             } else {
                 ChatBubble(text = state.answerText, isFromUser = false, isFromAi = state.isAnswerFromAi)
                 Text("👏💧", fontSize = 44.sp, modifier = Modifier.align(Alignment.CenterHorizontally))

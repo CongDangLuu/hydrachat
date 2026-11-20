@@ -14,6 +14,7 @@ import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -33,10 +34,12 @@ import com.hydrachat.app.ui.HydraTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.hypot
 
 /**
@@ -131,6 +134,8 @@ class BubbleService : Service() {
         state.targetMl = settings.targetMl.coerceAtLeast(1)
         state.cupMl = settings.cupMl
         state.phase = PanelPhase.Asking
+        state.messages.clear()
+        state.isSending = false
         state.hasUnread = true
         scope.launch { state.totalMl = container.repository.todayTotalMl() }
 
@@ -207,15 +212,24 @@ class BubbleService : Service() {
         val params = overlayParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             (screenHeight * PANEL_HEIGHT_RATIO).toInt(),
-        ).apply { gravity = Gravity.BOTTOM }
+        ).apply {
+            gravity = Gravity.BOTTOM
+            // The text box needs the keyboard; touches outside the panel still reach the app below.
+            flags = (flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()) or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        }
         val view = composeWindow {
             ChatPanel(
                 state = state,
                 onDrink = ::onDrink,
                 onSnooze = ::onSnooze,
+                onSendMessage = ::onSendMessage,
                 onClose = ::hidePanel,
             )
         }
+        // A focusable panel receives the Back key, which should close it like on any other screen.
+        view.onBack = ::hidePanel
         windowManager.addView(view, params)
         panelView = view
         restartTimeout()
@@ -282,6 +296,26 @@ class BubbleService : Service() {
         scope.launch {
             container.repository.recordSnooze()
             showAnswerThenClose("Ok, ${HydrationMath.SNOOZE_MINUTES} phút nữa mình nhắc lại nha 🤫")
+        }
+    }
+
+    private fun onSendMessage(text: String) {
+        if (isAnswering || state.isSending) return
+        state.isSending = true
+        state.messages += PanelMessage(text, isFromUser = true)
+        restartTimeout()
+        scope.launch {
+            // Dismissing the bubble mid-reply must not lose the message or a drink it reports.
+            val outcome = withContext(NonCancellable) { container.repository.sendUserMessage(text) }
+            state.isSending = false
+            state.messages += PanelMessage(outcome.replyText, isFromUser = false, isFromAi = outcome.isFromAi)
+            restartTimeout()
+            val water = outcome.water ?: return@launch
+            state.totalMl = water.totalMl
+            isAnswering = true
+            timeoutJob?.cancel()
+            delay(CHAT_DRINK_COLLAPSE_MS)
+            dismissAll()
         }
     }
 
@@ -394,8 +428,16 @@ class BubbleService : Service() {
     /** Lets the bubble root take every touch so drags are tracked in raw screen coordinates. */
     private class InterceptingFrame(context: Context) : FrameLayout(context) {
         var interceptTouches = false
+        var onBack: (() -> Unit)? = null
 
         override fun onInterceptTouchEvent(event: MotionEvent): Boolean = interceptTouches
+
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+            val handler = onBack
+            if (handler == null || event.keyCode != KeyEvent.KEYCODE_BACK) return super.dispatchKeyEvent(event)
+            if (event.action == KeyEvent.ACTION_UP) handler()
+            return true
+        }
     }
 
     companion object {

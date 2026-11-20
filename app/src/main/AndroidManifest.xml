@@ -40,6 +40,7 @@
 
         <activity
             android:name=".bubble.BubbleActivity"
+            android:windowSoftInputMode="adjustResize"
             android:allowEmbedded="true"
             android:documentLaunchMode="always"
             android:exported="false"

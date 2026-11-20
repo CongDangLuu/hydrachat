@@ -25,6 +25,9 @@ interface ChatDao {
     @Query("SELECT * FROM chat_messages WHERE timestamp >= :from ORDER BY timestamp, id")
     fun observeSince(from: Long): Flow<List<ChatMessage>>
 
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp DESC, id DESC LIMIT :limit")
+    suspend fun latest(limit: Int): List<ChatMessage>
+
     @Query("DELETE FROM chat_messages WHERE timestamp < :before")
     suspend fun deleteOlderThan(before: Long)
 }

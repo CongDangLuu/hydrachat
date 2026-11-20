@@ -50,10 +50,12 @@ fun HomeScreen(viewModel: MainViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val logs by viewModel.todayLogs.collectAsStateWithLifecycle()
     val chat by viewModel.todayChat.collectAsStateWithLifecycle()
+    val isSending by viewModel.isSending.collectAsStateWithLifecycle()
     val totalMl = logs.sumOf { it.amountMl }
     val listState = rememberLazyListState()
-    LaunchedEffect(chat.size) {
-        if (chat.isNotEmpty()) listState.animateScrollToItem(chat.lastIndex)
+    LaunchedEffect(chat.size, isSending) {
+        val lastIndex = chat.size + (if (isSending) 1 else 0) - 1
+        if (lastIndex >= 0) listState.animateScrollToItem(lastIndex)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
@@ -69,7 +71,9 @@ fun HomeScreen(viewModel: MainViewModel) {
             items(chat, key = { it.id }) { 
                 ChatBubble(text = it.text, isFromUser = it.isFromUser, isFromAi = it.isFromAi)
             }
+            if (isSending) item { TypingBubble() }
         }
+        ChatInputRow(isSending = isSending, onSend = viewModel::sendMessage, modifier = Modifier.padding(bottom = 8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
             Button(onClick = { viewModel.logDrink(settings.cupMl) }, modifier = Modifier.weight(1f)) {
                 Text("🥤 ${settings.cupMl}ml", maxLines = 1)

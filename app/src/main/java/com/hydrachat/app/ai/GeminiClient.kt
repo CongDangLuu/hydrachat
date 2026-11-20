@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -30,19 +31,28 @@ data class NudgeRequest(
 class GeminiClient {
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun generateNudge(apiKey: String, request: NudgeRequest): Result<NudgeContent> =
-        withContext(Dispatchers.IO) {
-            try {
-                val responseBody = post(apiKey, buildBody(request).toString())
-                Result.success(parse(responseBody))
-            } catch (e: IOException) {
-                Result.failure(e)
-            } catch (e: SerializationException) {
-                Result.failure(e)
-            } catch (e: IllegalArgumentException) {
-                Result.failure(e)
-            }
+    suspend fun generateNudge(apiKey: String, request: NudgeRequest): Result<NudgeContent> = call {
+        val nudge = json.decodeFromString<NudgeContent>(structuredText(post(apiKey, buildBody(request).toString())))
+        require(nudge.chatText.isNotBlank()) { "Gemini returned an empty chat text" }
+        nudge
+    }
+
+    suspend fun generateChatReply(apiKey: String, request: ChatRequest): Result<ChatReply> = call {
+        val body = buildChatBody(request).toString()
+        parseChatReply(json.decodeFromString<ChatReply>(structuredText(post(apiKey, body))))
+    }
+
+    private suspend fun <T> call(block: () -> T): Result<T> = withContext(Dispatchers.IO) {
+        try {
+            Result.success(block())
+        } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: SerializationException) {
+            Result.failure(e)
+        } catch (e: IllegalArgumentException) {
+            Result.failure(e)
         }
+    }
 
     private fun post(apiKey: String, body: String): String {
         val connection = URL(ENDPOINT).openConnection() as HttpURLConnection
@@ -65,16 +75,14 @@ class GeminiClient {
         }
     }
 
-    private fun parse(responseBody: String): NudgeContent {
+    /** The JSON text Gemini wrote in its first candidate. */
+    private fun structuredText(responseBody: String): String {
         val root = json.parseToJsonElement(responseBody).jsonObject
-        val text = root["candidates"]?.jsonArray?.firstOrNull()?.jsonObject
+        return root["candidates"]?.jsonArray?.firstOrNull()?.jsonObject
             ?.get("content")?.jsonObject
             ?.get("parts")?.jsonArray?.firstOrNull()?.jsonObject
             ?.get("text")?.jsonPrimitive?.content
             ?: throw SerializationException("Gemini response has no text part")
-        val nudge = json.decodeFromString<NudgeContent>(text)
-        require(nudge.chatText.isNotBlank()) { "Gemini returned an empty chat text" }
-        return nudge
     }
 
     private fun buildBody(request: NudgeRequest): JsonObject = buildJsonObject {
@@ -106,7 +114,7 @@ class GeminiClient {
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.stringField(name: String, description: String) {
+    private fun JsonObjectBuilder.stringField(name: String, description: String) {
         putJsonObject(name) {
             put("type", "STRING")
             put("description", description)

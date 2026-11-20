@@ -90,6 +90,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         container.settings.update(transform)
     }
 
+    private val sending = MutableStateFlow(false)
+
+    /** True while a typed message waits for the persona's answer. */
+    val isSending: StateFlow<Boolean> = sending
+
+    fun sendMessage(text: String) {
+        val message = text.trim().take(HydrationMath.MAX_CHAT_MESSAGE_LENGTH)
+        if (message.isEmpty() || sending.value) return
+        sending.value = true
+        viewModelScope.launch {
+            try {
+                repository.sendUserMessage(message)
+            } finally {
+                sending.value = false
+            }
+        }
+    }
+
     fun logDrink(amountMl: Int) {
         viewModelScope.launch { repository.logDrink(amountMl) }
     }
