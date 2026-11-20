@@ -3,9 +3,9 @@ package com.hydrachat.app.data
 import android.content.Context
 import android.util.Log
 import com.hydrachat.app.domain.HydrationMath
+import com.hydrachat.app.domain.ReminderWindow
 import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreCatalog
-import com.hydrachat.app.domain.WorkSchedule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
@@ -22,9 +22,10 @@ data class UserSettings(
     // Values equal to the default are not stored, so changing this would silently move existing users' targets.
     val targetMl: Int = 2000,
     val cupMl: Int = 250,
-    val workStartMinute: Int = 8 * 60 + 30,
-    val workEndMinute: Int = 17 * 60 + 30,
-    val skipWeekends: Boolean = true,
+    val wakeMinute: Int = 7 * 60,
+    /** May be after midnight (e.g. 00:30); reminders still stop 2 hours before it. */
+    val bedMinute: Int = 23 * 60,
+    val skipWeekends: Boolean = false,
     /** 0 means "auto": derived from target, cup size and work hours. */
     val intervalMinutes: Int = 0,
     val isSoundEnabled: Boolean = true,
@@ -41,7 +42,7 @@ data class UserSettings(
     val pendingPraiseAt: Long = 0,
 ) {
     val persona: Persona get() = Persona.fromId(personaId)
-    val schedule: WorkSchedule get() = WorkSchedule(workStartMinute, workEndMinute, skipWeekends)
+    val schedule: ReminderWindow get() = HydrationMath.reminderWindow(wakeMinute, bedMinute, skipWeekends)
     val effectiveIntervalMinutes: Int
         get() = if (intervalMinutes > 0) intervalMinutes else HydrationMath.autoIntervalMinutes(targetMl, cupMl, schedule)
 

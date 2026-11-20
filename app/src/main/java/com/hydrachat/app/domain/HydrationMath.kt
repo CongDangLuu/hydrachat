@@ -6,7 +6,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-data class WorkSchedule(
+/** The part of the day when reminders may fire, derived from wake-up time and bedtime. */
+data class ReminderWindow(
     val startMinute: Int,
     val endMinute: Int,
     val skipWeekends: Boolean,
@@ -31,6 +32,10 @@ object HydrationMath {
     // Clamp so very light people are not under-served and heavy people are not pushed to over-drink.
     private const val MIN_TARGET_ML = 1500
     private const val MAX_TARGET_ML = 3000
+    // Research: stopping drinks about 2 hours before bed avoids waking up at night to pee (nocturia).
+    const val BEDTIME_QUIET_MINUTES = 120
+    const val MIN_WINDOW_MINUTES = 60
+    private const val MINUTES_PER_DAY = 24 * 60
     private const val MIN_INTERVAL_MINUTES = 30
     private const val MAX_INTERVAL_MINUTES = 90
     private const val INTERVAL_STEP_MINUTES = 5
@@ -46,22 +51,29 @@ object HydrationMath {
         return rounded.coerceIn(MIN_TARGET_ML, MAX_TARGET_ML)
     }
 
-    fun autoIntervalMinutes(targetMl: Int, cupMl: Int, schedule: WorkSchedule): Int {
+    /** Wake-up to 2 hours before bed; a bedtime after midnight still ends reminders the same evening. */
+    fun reminderWindow(wakeMinute: Int, bedMinute: Int, skipWeekends: Boolean): ReminderWindow {
+        val bedAfterWake = if (bedMinute <= wakeMinute) bedMinute + MINUTES_PER_DAY else bedMinute
+        val end = (bedAfterWake - BEDTIME_QUIET_MINUTES).coerceAtMost(MINUTES_PER_DAY - 1)
+        return ReminderWindow(wakeMinute, end, skipWeekends)
+    }
+
+    fun autoIntervalMinutes(targetMl: Int, cupMl: Int, schedule: ReminderWindow): Int {
         val cups = ((targetMl + cupMl - 1) / cupMl).coerceAtLeast(1)
         val workMinutes = (schedule.endMinute - schedule.startMinute).coerceAtLeast(MIN_INTERVAL_MINUTES)
         val raw = workMinutes / cups / INTERVAL_STEP_MINUTES * INTERVAL_STEP_MINUTES
         return raw.coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
     }
 
-    fun isWorkday(date: LocalDate, schedule: WorkSchedule): Boolean {
+    fun isReminderDay(date: LocalDate, schedule: ReminderWindow): Boolean {
         val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
         return !(schedule.skipWeekends && isWeekend)
     }
 
-    fun isWithinWork(nowMillis: Long, schedule: WorkSchedule, zone: ZoneId): Boolean {
+    fun isWithinWindow(nowMillis: Long, schedule: ReminderWindow, zone: ZoneId): Boolean {
         val now = Instant.ofEpochMilli(nowMillis).atZone(zone)
         val minute = minuteOfDay(now)
-        return isWorkday(now.toLocalDate(), schedule) &&
+        return isReminderDay(now.toLocalDate(), schedule) &&
             minute >= schedule.startMinute &&
             minute <= schedule.endMinute + END_OF_DAY_SLACK_MINUTES
     }
@@ -69,14 +81,14 @@ object HydrationMath {
     /** Next reminder time; `skipToday` is used once the daily goal is reached. */
     fun nextReminderAt(
         nowMillis: Long,
-        schedule: WorkSchedule,
+        schedule: ReminderWindow,
         intervalMinutes: Int,
         zone: ZoneId,
         skipToday: Boolean = false,
     ): Long {
         val now = Instant.ofEpochMilli(nowMillis).atZone(zone)
         val today = now.toLocalDate()
-        if (!skipToday && isWorkday(today, schedule)) {
+        if (!skipToday && isReminderDay(today, schedule)) {
             val candidate = now.plusMinutes(intervalMinutes.toLong())
             val isSameDay = candidate.toLocalDate() == today
             if (isSameDay && minuteOfDay(candidate) < schedule.startMinute) {
@@ -87,7 +99,7 @@ object HydrationMath {
             }
         }
         var date = today.plusDays(1)
-        while (!isWorkday(date, schedule)) {
+        while (!isReminderDay(date, schedule)) {
             date = date.plusDays(1)
         }
         return firstReminderOf(date, schedule, zone)
@@ -149,7 +161,7 @@ object HydrationMath {
 
     private fun minuteOfDay(time: ZonedDateTime): Int = time.hour * MINUTES_PER_HOUR + time.minute
 
-    private fun firstReminderOf(date: LocalDate, schedule: WorkSchedule, zone: ZoneId): Long =
+    private fun firstReminderOf(date: LocalDate, schedule: ReminderWindow, zone: ZoneId): Long =
         date.atStartOfDay(zone)
             .plusMinutes((schedule.startMinute + FIRST_REMINDER_OFFSET_MINUTES).toLong())
             .toInstant()

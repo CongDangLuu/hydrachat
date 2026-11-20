@@ -24,9 +24,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,11 +40,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -52,24 +58,19 @@ import com.hydrachat.app.domain.Persona
 import com.hydrachat.app.domain.StoreCatalog
 import com.hydrachat.app.reminder.ReminderNotifier
 
-private enum class OnboardingStep { PickPersona, Weight, Age, WorkHours, Cup, Permissions }
+private enum class OnboardingStep { PickPersona, Weight, Age, Wake, Bed, Cup, Permissions }
 
 private data class OnboardingMessage(val text: String, val isFromUser: Boolean)
-
-private data class WorkHoursOption(val startMinute: Int, val endMinute: Int) {
-    val label: String
-        get() = "${HydrationMath.formatMinuteOfDay(startMinute)} – ${HydrationMath.formatMinuteOfDay(endMinute)}"
-}
 
 private val weightOptions = listOf(45, 50, 55, 60, 65, 70, 75, 80, 90)
 private val ageOptions = listOf("Dưới 55 tuổi", "Từ 55 tuổi trở lên")
 private val cupOptions = listOf(200, 250, 300, 350, 500)
-private val workHoursOptions = listOf(
-    WorkHoursOption(8 * 60, 17 * 60),
-    WorkHoursOption(8 * 60 + 30, 17 * 60 + 30),
-    WorkHoursOption(9 * 60, 18 * 60),
-    WorkHoursOption(10 * 60, 19 * 60),
-)
+private val wakeOptions = listOf(5 * 60 + 30, 6 * 60, 6 * 60 + 30, 7 * 60, 7 * 60 + 30, 8 * 60, 9 * 60)
+private val bedOptions = listOf(21 * 60 + 30, 22 * 60, 22 * 60 + 30, 23 * 60, 23 * 60 + 30, 0, 30, 60)
+private val typedWeightRange = 30..200
+private val typedAgeRange = 10..110
+private const val SENIOR_AGE_YEARS = 55
+private const val MAX_TYPED_DIGITS = 3
 
 /** First-run setup presented as the first conversation with the chosen persona. */
 @Composable
@@ -78,7 +79,8 @@ fun OnboardingScreen(viewModel: MainViewModel) {
     var persona by remember { mutableStateOf(Persona.GenZ) }
     var weightKg by remember { mutableIntStateOf(60) }
     var isAge55Plus by remember { mutableStateOf(false) }
-    var workHours by remember { mutableStateOf(workHoursOptions[1]) }
+    var wakeMinute by remember { mutableIntStateOf(wakeOptions[3]) }
+    var bedMinute by remember { mutableIntStateOf(bedOptions[3]) }
     var cupMl by remember { mutableIntStateOf(250) }
     val messages = remember {
         mutableStateListOf(OnboardingMessage("Chào bạn! Chọn một người bạn đồng hành nhắc uống nước nhé 👇", false))
@@ -106,25 +108,54 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                 persona = picked
                 answer(picked.displayName, "${picked.hello}\nBạn nặng bao nhiêu kg để mình tính lượng nước?", OnboardingStep.Weight)
             }
-            OnboardingStep.Weight -> ChipChoices(weightOptions.map { "$it kg" }) { index ->
-                weightKg = weightOptions[index]
-                answer("${weightKg} kg", "Bạn thuộc nhóm tuổi nào? Từ 55 tuổi nhu cầu nước thấp hơn một chút.", OnboardingStep.Age)
+            OnboardingStep.Weight -> {
+                fun pickWeight(kg: Int) {
+                    weightKg = kg
+                    val question = "Bạn bao nhiêu tuổi? Từ 55 tuổi nhu cầu nước thấp hơn một chút."
+                    answer("$kg kg", question, OnboardingStep.Age)
+                }
+                ChipChoices(weightOptions.map { "$it kg" }) { pickWeight(weightOptions[it]) }
+                NumberAnswer(
+                    placeholder = "Hoặc nhập số kg",
+                    range = typedWeightRange,
+                    errorText = "Nhập cân nặng từ 30 đến 200 kg nhé",
+                    onSubmit = ::pickWeight,
+                )
             }
-            OnboardingStep.Age -> ChipChoices(ageOptions) { index ->
-                isAge55Plus = index == ageOptions.lastIndex
-                answer(ageOptions[index], "Giờ làm việc của bạn thế nào? Ngoài giờ mình sẽ ngủ đông 😴", OnboardingStep.WorkHours)
+            OnboardingStep.Age -> {
+                fun pickAge(label: String, isSenior: Boolean) {
+                    isAge55Plus = isSenior
+                    answer(label, "Mấy giờ bạn thường thức dậy? ☀️", OnboardingStep.Wake)
+                }
+                ChipChoices(ageOptions) { pickAge(ageOptions[it], it == ageOptions.lastIndex) }
+                NumberAnswer("Hoặc nhập tuổi", typedAgeRange, "Nhập tuổi từ 10 đến 110 nhé") { age ->
+                    pickAge("$age tuổi", age >= SENIOR_AGE_YEARS)
+                }
             }
-            OnboardingStep.WorkHours -> ChipChoices(workHoursOptions.map { it.label }) { index ->
-                workHours = workHoursOptions[index]
-                answer(workHours.label, "Cái cốc trên bàn bạn dung tích bao nhiêu?", OnboardingStep.Cup)
+            OnboardingStep.Wake -> ChipChoices(wakeOptions.map(HydrationMath::formatMinuteOfDay)) { index ->
+                wakeMinute = wakeOptions[index]
+                answer(
+                    HydrationMath.formatMinuteOfDay(wakeMinute),
+                    "Còn đi ngủ lúc mấy giờ? Mình sẽ ngừng nhắc 2 tiếng trước đó cho bạn ngủ ngon 😴",
+                    OnboardingStep.Bed,
+                )
+            }
+            OnboardingStep.Bed -> ChipChoices(bedOptions.map(HydrationMath::formatMinuteOfDay)) { index ->
+                bedMinute = bedOptions[index]
+                val question = "Cái cốc trên bàn bạn dung tích bao nhiêu?"
+                answer(HydrationMath.formatMinuteOfDay(bedMinute), question, OnboardingStep.Cup)
             }
             OnboardingStep.Cup -> ChipChoices(cupOptions.map { "$it ml" }) { index ->
                 cupMl = cupOptions[index]
                 val target = HydrationMath.dailyTargetMl(weightKg, isAge55Plus)
                 val cups = (target + cupMl - 1) / cupMl
+                val window = HydrationMath.reminderWindow(wakeMinute, bedMinute, skipWeekends = false)
+                val from = HydrationMath.formatMinuteOfDay(window.startMinute)
+                val until = HydrationMath.formatMinuteOfDay(window.endMinute)
                 answer(
                     "$cupMl ml",
-                    "Chốt! Mục tiêu $target ml/ngày ≈ $cups cốc.\n" +
+                    "Chốt! Mục tiêu $target ml/ngày ≈ $cups cốc, " +
+                        "mình nhắc từ $from đến $until mỗi ngày.\n" +
                         "Cho phép mình nổi bong bóng trên màn hình để nhắc bạn mà không cần mở app nhé!",
                     OnboardingStep.Permissions,
                 )
@@ -134,7 +165,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                 persona = persona,
                 onFinish = {
                     viewModel.finishOnboarding(
-                        OnboardingResult(persona, weightKg, isAge55Plus, workHours.startMinute, workHours.endMinute, cupMl),
+                        OnboardingResult(persona, weightKg, isAge55Plus, wakeMinute, bedMinute, cupMl),
                     )
                 },
             )
@@ -162,6 +193,38 @@ private fun PersonaChoices(onPick: (Persona) -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** Free-form number answer next to the chips, for values the chips do not cover. */
+@Composable
+private fun NumberAnswer(placeholder: String, range: IntRange, errorText: String, onSubmit: (Int) -> Unit) {
+    var draft by rememberSaveable { mutableStateOf("") }
+    var isInvalid by remember { mutableStateOf(false) }
+    val submit = {
+        val value = draft.toIntOrNull()
+        if (value != null && value in range) onSubmit(value) else isInvalid = true
+    }
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = {
+                    draft = it.filter(Char::isDigit).take(MAX_TYPED_DIGITS)
+                    isInvalid = false
+                },
+                placeholder = { Text(placeholder) },
+                singleLine = true,
+                isError = isInvalid,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+                modifier = Modifier.weight(1f),
+            )
+            Button(onClick = submit, enabled = draft.isNotEmpty(), modifier = Modifier.padding(start = 8.dp)) {
+                Text("OK")
+            }
+        }
+        if (isInvalid) Text(errorText, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
     }
 }
 

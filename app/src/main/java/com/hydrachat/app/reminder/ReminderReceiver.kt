@@ -33,7 +33,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val settings = container.settings.current
         if (!settings.isOnboarded) return
         val now = System.currentTimeMillis()
-        if (!HydrationMath.isWithinWork(now, settings.schedule, ZoneId.systemDefault())) {
+        if (!HydrationMath.isWithinWindow(now, settings.schedule, ZoneId.systemDefault())) {
             container.scheduler.scheduleNext()
             return
         }

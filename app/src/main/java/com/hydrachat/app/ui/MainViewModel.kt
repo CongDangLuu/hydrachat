@@ -27,8 +27,8 @@ data class OnboardingResult(
     val persona: Persona,
     val weightKg: Int,
     val isAge55Plus: Boolean,
-    val workStartMinute: Int,
-    val workEndMinute: Int,
+    val wakeMinute: Int,
+    val bedMinute: Int,
     val cupMl: Int,
 )
 
@@ -70,8 +70,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 isAge55Plus = result.isAge55Plus,
                 targetMl = HydrationMath.dailyTargetMl(result.weightKg, result.isAge55Plus),
                 cupMl = result.cupMl,
-                workStartMinute = result.workStartMinute,
-                workEndMinute = result.workEndMinute,
+                wakeMinute = result.wakeMinute,
+                bedMinute = result.bedMinute,
             )
         }
         container.scheduler.scheduleNext()
@@ -84,6 +84,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun updateSchedule(transform: (UserSettings) -> UserSettings) {
         container.settings.update(transform)
         container.scheduler.scheduleNext()
+    }
+
+    /** Like [updateSchedule], but ignores a change that would leave less than an hour for reminders. */
+    fun updateScheduleIfWindowFits(transform: (UserSettings) -> UserSettings) {
+        val window = transform(settings.value).schedule
+        if (window.endMinute - window.startMinute < HydrationMath.MIN_WINDOW_MINUTES) return
+        updateSchedule(transform)
     }
 
     fun updateSettings(transform: (UserSettings) -> UserSettings) {

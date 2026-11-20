@@ -10,7 +10,7 @@ import java.time.ZoneId
 
 class HydrationMathTest {
     private val zone = ZoneId.of("Asia/Ho_Chi_Minh")
-    private val schedule = WorkSchedule(startMinute = 8 * 60 + 30, endMinute = 17 * 60 + 30, skipWeekends = true)
+    private val schedule = ReminderWindow(startMinute = 8 * 60 + 30, endMinute = 17 * 60 + 30, skipWeekends = true)
 
     // 2026-11-16 is a Monday, 2026-11-20 a Friday.
     private fun at(day: Int, hour: Int, minute: Int): Long =
@@ -39,7 +39,7 @@ class HydrationMathTest {
     }
 
     @Test
-    fun nextReminderStaysInsideWorkHours() {
+    fun nextReminderStaysInsideWindow() {
         assertEquals(at(16, 11, 0), HydrationMath.nextReminderAt(at(16, 10, 0), schedule, 60, zone))
         assertEquals(at(16, 8, 40), HydrationMath.nextReminderAt(at(16, 6, 0), schedule, 60, zone))
         assertEquals(at(17, 8, 40), HydrationMath.nextReminderAt(at(16, 17, 0), schedule, 60, zone))
@@ -55,11 +55,19 @@ class HydrationMathTest {
     }
 
     @Test
-    fun workWindowCheck() {
-        assertTrue(HydrationMath.isWithinWork(at(16, 9, 0), schedule, zone))
-        assertFalse(HydrationMath.isWithinWork(at(16, 7, 0), schedule, zone))
-        assertFalse(HydrationMath.isWithinWork(at(16, 18, 0), schedule, zone))
-        assertFalse(HydrationMath.isWithinWork(at(21, 9, 0), schedule, zone))
+    fun windowEndsTwoHoursBeforeBed() {
+        assertEquals(ReminderWindow(7 * 60, 21 * 60, false), HydrationMath.reminderWindow(7 * 60, 23 * 60, false))
+        // A bedtime after midnight still ends reminders the evening before.
+        assertEquals(ReminderWindow(7 * 60, 22 * 60 + 30, false), HydrationMath.reminderWindow(7 * 60, 30, false))
+        assertEquals(ReminderWindow(7 * 60, 23 * 60 + 59, false), HydrationMath.reminderWindow(7 * 60, 3 * 60, false))
+    }
+
+    @Test
+    fun windowCheck() {
+        assertTrue(HydrationMath.isWithinWindow(at(16, 9, 0), schedule, zone))
+        assertFalse(HydrationMath.isWithinWindow(at(16, 7, 0), schedule, zone))
+        assertFalse(HydrationMath.isWithinWindow(at(16, 18, 0), schedule, zone))
+        assertFalse(HydrationMath.isWithinWindow(at(21, 9, 0), schedule, zone))
     }
 
     @Test

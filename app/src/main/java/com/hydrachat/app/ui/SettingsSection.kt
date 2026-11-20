@@ -57,8 +57,7 @@ private const val TARGET_STEP_ML = 100
 private const val MIN_TARGET_ML = 1000
 private const val MAX_TARGET_ML = 4000
 private const val TIME_STEP_MINUTES = 30
-private const val MIN_WORK_SPAN_MINUTES = 60
-private const val LAST_MINUTE_OF_DAY = 23 * 60 + 30
+private const val MINUTES_PER_DAY = 24 * 60
 private val cupSizes = listOf(200, 250, 300, 350, 500)
 private val intervalChoices = listOf(0, 30, 45, 60, 90)
 
@@ -110,17 +109,23 @@ fun SettingsSection(viewModel: MainViewModel, settings: UserSettings) {
             }
         }
 
-        SettingsCard("Giờ nhắc (ngoài giờ sẽ ngủ đông)") {
-            StepperRow("Bắt đầu", HydrationMath.formatMinuteOfDay(settings.workStartMinute)) { direction ->
-                val start = (settings.workStartMinute + direction * TIME_STEP_MINUTES)
-                    .coerceIn(0, settings.workEndMinute - MIN_WORK_SPAN_MINUTES)
-                viewModel.updateSchedule { it.copy(workStartMinute = start) }
+        SettingsCard("Giờ nhắc (lúc ngủ sẽ im lặng)") {
+            StepperRow("Thức dậy", HydrationMath.formatMinuteOfDay(settings.wakeMinute)) { direction ->
+                val wake = (settings.wakeMinute + direction * TIME_STEP_MINUTES).mod(MINUTES_PER_DAY)
+                viewModel.updateScheduleIfWindowFits { it.copy(wakeMinute = wake) }
             }
-            StepperRow("Kết thúc", HydrationMath.formatMinuteOfDay(settings.workEndMinute)) { direction ->
-                val end = (settings.workEndMinute + direction * TIME_STEP_MINUTES)
-                    .coerceIn(settings.workStartMinute + MIN_WORK_SPAN_MINUTES, LAST_MINUTE_OF_DAY)
-                viewModel.updateSchedule { it.copy(workEndMinute = end) }
+            StepperRow("Đi ngủ", HydrationMath.formatMinuteOfDay(settings.bedMinute)) { direction ->
+                val bed = (settings.bedMinute + direction * TIME_STEP_MINUTES).mod(MINUTES_PER_DAY)
+                viewModel.updateScheduleIfWindowFits { it.copy(bedMinute = bed) }
             }
+            val window = settings.schedule
+            Text(
+                "Nhắc từ ${HydrationMath.formatMinuteOfDay(window.startMinute)} đến " +
+                    "${HydrationMath.formatMinuteOfDay(window.endMinute)}, ngừng 2 tiếng trước giờ ngủ " +
+                    "để đêm khỏi thức dậy đi vệ sinh.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             SwitchRow("Nghỉ nhắc cuối tuần", settings.skipWeekends) { isOn ->
                 viewModel.updateSchedule { it.copy(skipWeekends = isOn) }
             }
